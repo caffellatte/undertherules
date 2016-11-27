@@ -2,54 +2,37 @@
 #                                                        | src/telegram.coffee |
 #                                                        =======================
 
-### ============================================================= ###
-# Using software https://www.npmjs.com/package/telegram-node-bot    #
-### ============================================================= ###
-
-# =============================== |
-# https://telegram.me/BotFather   |
-# =============================== |
-
 ### ========================== ###
-{                                #
-  KUE_PORT,                      #
-}                 = process.env  #
+{ KUE_PORT }      = process.env  #
+{ log }           = console      #
 ### ========================== ###
 
-### =============== ###
-{log}    = console    #
-### =============== ###
+### ================================== ###
+fs       = require 'fs'                  #
+request  = require 'request'             #
+_        = require 'lodash'              #
+helpers  = require './helpers.coffee'    #
+Telegram = require 'telegram-node-bot'   #
+### ================================== ###
 
-### ======================================================== ###
-fs       = require 'fs'                    # ~~~~~~~~~~~~~~~~~ #
-request  = require 'request'               # NPM               #
-_        = require 'lodash'                # http://npmjs.com  #
-helpers  = require './helpers.coffee'      # ~~~~~~~~~~~~~~~~~ #
-Telegram = require 'telegram-node-bot'                         #
-translit = require 'translitit-cyrillic-russian-to-latin'      #
-### ======================================================== ###
+### ================================ ###
+{ TelegramBaseController } = Telegram  #
+### ================================ ###
 
-### ===================================================== ###
-{                             # Extract BaseController,     #
-  TelegramBaseController,     # TextCommand  objects from   #
-# TextCommand                 # Telegram class              #
-}                = Telegram   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-### ===================================================== ###
+### ============================ ###
+{ # Extract helpers functions      #
+  helpText,                        #
+  startText,                       #
+  aboutText,                       #
+  Formatter,                       #
+  KueJobHelper,                    #
+  DatePrettyString                 #
+}                = helpers         #
+### ============================ ###
 
-### ======================================================== ###
-{                             # Extract helpers functions      #
-  helpText,                                                    #
-  startText,                                                   #
-  aboutText,                                                   #
-  Formatter,                                                   #
-  KueJobHelper,                                                #
-  DatePrettyString                                             #
-}                = helpers                                     #
-### ======================================================== ###
-
-### ======================================================== ###
-kueJob = new KueJobHelper()
-### ======================================================== ###
+### ========================== ###
+kueJob = new KueJobHelper()      #
+### ========================== ###
 
 ### ======================================================== ###
 Function::property = (prop, desc) ->               # Getter    #
@@ -215,7 +198,6 @@ class OtherwiseController extends TelegramBaseController       #
 
 ### ============================================================ ###
 # Node.js, Require and Exports                                     #
-# http://openmymind.net/2012/2/3/Node-Require-and-Exports/         #
 module.exports.StartController     = StartController               #
 module.exports.HelpController      = HelpController                #
 module.exports.TrackController     = TrackController               #

@@ -1,3 +1,129 @@
+#
+# kue.Job.rangeByState 'complete', 0, 1000, 'asc', (err, jobs) ->  #
+#   jobs.forEach (job) ->                                          #
+#     job.remove ->                                                #
+#       console.log 'removed ', job.id                             #
+#       return                                                     #
+#     return                                                       #
+#   return                                                         #
+
+### ======================================================================== ###
+# trackInstagramMediaHandler = (data, done) ->
+#   {chatId, mediaId} = data
+#   if !chatId? or !mediaId?               # create new user  #
+#     errorText = """
+#     Error! [kue.coffee](trackInstagramMediaHandler).
+#     Faild to track for #{chatId}.
+#     """                                                                        #
+#     log errorText                                                              #
+#     return done(new Error(errorText))                                          #
+#   uri = "https://www.instagram.com/p/#{mediaId}?__a=1"
+#   request uri, (error, response, body) ->
+#     if !error and response.statusCode is 200
+#       try
+#         data = JSON.parse body
+#       catch error
+#         log error
+#         return done(new Error(error))
+#       finally
+#         {media} = data
+#         {video_views, date, likes, comments} = media
+#         log likes: "#{likes.count}"
+#         # LOoooP! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#         requestTrackInstagramMedia =
+#           url: "http://localhost:#{KUE_PORT}/job"
+#           headers: 'Content-Type': 'application/json'
+#           method:  'POST'                                  #
+#           title:   "[Track Loop] to (#{mediaId})"
+#           mediaId:  mediaId
+#           chatId:   chatId
+#         job = queue.create('trackInstagramMediaHandler', requestTrackInstagramMedia).removeOnComplete( true ).save((err) ->      #
+#           if !err                                                                    #
+#             log "[kue.coffee] {trackHandler} (OK) Kue job id: #{job.id}"                            #
+#           return                                                                     #
+#         ).delay(1000*60*1)
+#         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+#         done()
+#         return
+#     else
+#       return done(new Error(error))
+### ====================================================================== ###
+
+### ======================================================================== ###
+  # if !chatId? or !url? or !type? or !network? or !mediaId?               #   #
+  #   errorText = """
+  #   Error! [kue.coffee](trackHandler).
+  #   Faild to track #{type}, #{url} (#{network}) for #{chatId}.
+  #   """                                                                        #
+  #   log errorText                                                              #
+  #   return done(new Error(errorText))                                          #
+  # db = multilevel.client()
+  # con = net.connect LEVEL_PORT
+  # con.pipe(db.createRpcStream()).pipe con
+  # db.get chatId, (err, val) ->
+  #   if err
+  #     return done(new Error(err))
+  #     throw err
+  #   val.track.push url
+  #   db.put chatId, val, (err) ->
+  #   if err
+  #     return done(new Error(err))
+  #     throw err
+  #   done()
+  #   return
+  #   console.log val
+  #   db.close()
+  # requestTrackInstagramMedia =
+  #   url: "http://localhost:#{KUE_PORT}/job"
+  #   headers: 'Content-Type': 'application/json'
+  #   method:  'POST'                                  #
+  #   title:   "Track Handler '#{title}' to (#{chatId})"
+  #   chatId:   chatId                                       #
+  #   mediaId:  mediaId
+  # jobType = "track#{network[0].toUpperCase()}#{network[1..]}#{type[0].toUpperCase()}#{type[1..]}Handler"
+  # job = queue.create(jobType, requestTrackInstagramMedia).removeOnComplete( true ).save((err) ->      #
+  #   if !err                                                                    #
+  #     log "[kue.coffee] {trackHandler} (OK) Kue job id: #{job.id}"                            #
+  #   return                                                                     #
+  # )
+  # requestDataSendMessage =
+  #   url: "http://localhost:#{KUE_PORT}/job"
+  #   headers: 'Content-Type': 'application/json'
+  #   method:  'POST'                                  #
+  #   title:   "Send Message: '#{title}' to (#{chatId})"
+  #   type:    'sendMessage'                                #
+  #   chatId:   chatId                                       #
+  #   text:    "Instagram media id: #{mediaId}" # Stats
+  # jobSendMessage = queue.create('sendMessage', requestDataSendMessage).save((err) ->      #
+  #   if !err                                                                    #
+  #     log "[kue.coffee] {sendMessage} (OK) Kue job id: #{jobSendMessage.id}"                            #
+  #   return                                                                     #
+  # )                                                                            #
+  # done()                                                                       #
+  # return                                                                       #
+### ======================================================================== ###
+
+### ====================================================================== ###
+# newUser = (data, done) ->                       # Telegram New  User #
+#   {chat} = data.userData                                                      #
+#   {id, type, username, first_name, last_name} = chat
+#   chat.track = []
+#   chat.find  = []
+#   db = multilevel.client()
+#   con = net.connect LEVEL_PORT
+#   con.pipe(db.createRpcStream()).pipe con
+#   db.get id, (err, val) ->
+#     if err
+#       db.put id, chat, (err) ->
+#       if err
+#         return done(new Error(err))
+#         throw err
+#       done()
+#       return
+#     db.close()
+#     done()                                                                     #
+#     return                                                                     #
+### ====================================================================== ###
 
 ### ======================================================================== ###
 # createSaveJob = (type, job) -> # Create Save Kue Job
