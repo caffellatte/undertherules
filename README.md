@@ -5,74 +5,97 @@
 Software provides nimble web-data operations.
 Current state: minimum viable product (MVP). Demo version.
 
-
 ## Stack
+
+  * Tested on Debian 8.5 x64 powered by [flops](https://flops.ru/?refid=18288) cloud-hosting.
+  * [Redis](http://redis.io/topics/quickstart) - is an open source, in-memory data structure store, used as database, cache and message broker.
+  * [Node.js](https://nodejs.org/en/download/package-manager/) - JavaScript runtime built on [Chrome's V8 JavaScript engine](https://developers.google.com/v8/).
+  * [Node Foreman](https://www.npmjs.com/package/foreman) - Node Implementation of Foreman
+  * [Telegram messenger CLI](https://github.com/vysheng/tg) - Command-line interface for Telegram. Uses readline interface. (for tests).
   * [kue](https://www.npmjs.com/package/kue) - Kue is a priority job queue backed by redis, built for node.js.
   * [request](https://www.npmjs.com/package/request) - Simplified HTTP request client.
   * [telegram-node-bot](https://www.npmjs.com/package/telegram-node-bot) - Module for creating Telegram bots.
 
-## Install
-  ```
-  npm install --save undertherules
-  ```
-  Developers version only.
+## Environment
 
-## Deployment
-Prerequisites For Debian 8. Tested:
-  * [DigitalOcean: Cloud computing designed for developers](https://m.do.co/c/e4bc7eb8bf03) -  is a simple and robust cloud computing platform.
-  * [Flops (VPS, VDS, SSD) free trial cloud-hosting.](https://flops.ru/?refid=18288) - simple, robust hosting.
+### Install system packages
+```
+  apt-get install    \
+    sudo             \
+    curl             \
+    build-essential  \
+    htop             \
+    mc               \
+    git-core         \
+    tcl8.5           \
+    nginx            \
+    openjdk-8-jre    \
+    tree             \
+    apache2-utils
+```
 
-  ```
-  sudo apt-get install \
-      curl             \
-      build-essential  \
-      htop             \
-      mc               \
-      git-core         \
-      tcl8.5           \
-      nginx            \
-      openjdk-8-jre    \
-      tree             \
-      apache2-utils
-  ```
-## Software
-  * [Redis](http://redis.io/topics/quickstart) - Redis is an open source, in-memory data structure store, used as database, cache and message broker.
-  * [Node.js](https://nodejs.org/en/download/package-manager/) - JavaScript runtime built on [Chrome's V8 JavaScript engine](https://developers.google.com/v8/).
-  * [Node Foreman](https://www.npmjs.com/package/foreman) - Node Implementation of Foreman
-  * [Telegram messenger CLI](https://github.com/vysheng/tg) - Command-line interface for Telegram. Uses readline interface. (for tests).
+### Install Node
+```
+  curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+```
 
-## Create new user
-  ```
-  sudo useradd --home-dir /home/utrbot --create-home --shell /bin/bash utrbot
-  ```
-## Configure NGINX. Add symbolic Links
-  ```
-  cd /etc/nginx/sites-enabled && sudo ln \
-  -s <APP_PATH like '/home/utrbot/node_modules/undertherules'>/etc/nginx/default
-  ```
-## Add pass for web dashboard
-  ```
-  sudo htpasswd -c /etc/nginx/.htpasswd undertherules
-  ```
-## Install global packages
-  ```
-  sudo npm install -g   \
-        coffee-script   \
-        coffee-graph    \
-        clog-analysis   \
-        foreman         \
-  ```
+### Install Redis
+```
+  wget http://download.redis.io/redis-stable.tar.gz
+  tar xvzf redis-stable.tar.gz
+  cd redis-stable
+  make
+  make test
+  sudo make install
+  sudo mkdir /etc/redis && sudo mkdir /var/redis
+  sudo cp utils/redis_init_script /etc/init.d/redis_6379
+  sudo nano /etc/init.d/redis_6379
+  sudo cp redis.conf /etc/redis/6379.conf
+  sudo nano /etc/redis/6379.conf
+  sudo mkdir /var/redis/6379
+  sudo update-rc.d redis_6379 defaults
+  sudo /etc/init.d/redis_6379 start
+```
+
+### Create new user
+```
+  sudo useradd --home-dir /home/bot --create-home --shell /bin/bash bot
+```
+
+### Install npm global packages
+```
+  sudo npm install -g coffee-script foreman
+```
+
+### Install package
+```
+  npm install undertherules
+```
+
+### Configure HTTP server. Adding symbolic Links
+```
+  rm /etc/nginx/sites-enabled/default
+  cd /etc/nginx/sites-enabled &&
+  sudo ln -s /home/bot/node_modules/undertherules/etc/nginx/default
+  sudo service nginx restart
+```
+
+## Maintenance
+
+### Launching application without root privileges.
+```
+  cd ~/node_modules/undertherules
+  nf start
+```
+
+### Set as a global job using root access.
+```
+  sudo nf export -o /etc/init
+```
+
 ## Data-Sources
 * [Instagram](https://www.instagram.com/developer/), Examples: [video](https://www.instagram.com/p/BLEkdVVjbUQ/)
-* [Facebook](https://developers.facebook.com/docs/), Examples: [video](https://facebook.com/bono.appetito/videos/1016876628404543/)
-* [YouTube](https://developers.google.com/youtube/v3/), Examples: [video](https://www.youtube.com/watch?v=ql2GIq1qHvo), [video](https://youtu.be/ql2GIq1qHvo)
-* [Coub](https://coub.com/dev/docs/Coub+API/Overview)
-* [VKontakte](https://vk.com/dev/), Examples: [video](https://vk.com/video-32194285_456239404)
-* [MyMail](http://api.mail.ru), Examples: [video](http://my.mail.ru/community/bon.appetit/video/_groupvideo/820.html)        
-* [Odnoklassniki](http://new.apiok.ru), Examples: [video](https://ok.ru/video/81684204187)
-* [Foursquare](https://developer.foursquare.com)
-* [Twitter](https://dev.twitter.com/rest/public)
-* [Vimeo](https://developer.vimeo.com)
 
 ## Links
 * [Using self-signed certificates](https://core.telegram.org/bots/self-signed) - Upload your certificate using the certificate parameter in the webhook method.
@@ -94,17 +117,16 @@ Prerequisites For Debian 8. Tested:
 * [Typelib file for namespace 'Notify' (any version) not found](https://github.com/vysheng/tg/issues/424) - Test system packages.
 
 ## Future todo
-  * [BOTAN.IO](http://botan.io) - The most advanced analytics for your Telegram bot.
-  * Tests using telegtam-cli
-
-## Hardware
-  * [DigitalOcean](https://m.do.co/c/e4bc7eb8bf03) -  is a simple and robust cloud computing platform.
-  * [Flops](https://flops.ru/?refid=18288) - Technologies used in [FLOPS](https://flops.ru/?refid=18288), are at the forefront of the web hosting industry.
-  * [Twilio](https://www.twilio.com) - Build apps that communicate with everyone in the world. Voice & Video, Messaging, and Authentication APIs for every application.
-  * class CreateJob
+  * Analytics for your Telegram bot (e.g. [botan](http://botan.io))
+  * Tests using telegtam-cli.
+  * class CreateJob [+]
   * Add Russian & Hebrew comments in the code.
   * Create bot for flops.ru
   * Add new links from: vk.com/big.data
+  * Authorization
+  * class DataBaseHelper (using levelup)
+  * JSON templates for extracting data (request, response).
+  * Digital mapping
 
 ## Thanks
   * Romanovsky P. (Socialist Group)
