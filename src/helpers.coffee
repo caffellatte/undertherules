@@ -2,41 +2,35 @@
 #                            | src/helpers.coffee |
 #                            ======================
 
-### ========================== ###
-request  = require 'request'     #
-{ log } = console                #
-{ KUE_PORT } = process.env       #
-### ========================== ###
+### ============================ ###
+multilevel = require 'multilevel'  #
+request    = require 'request'     #
+level      = require 'level'       #
+path       = require 'path'        #
+net        = require 'net'         #
+{ log } = console                  #
+{ KUE_PORT } = process.env         #
+### ============================ ###
 
-### ========================== ###
-helpText = # Bot commands
-  """
-  /start - Create profile.
-  /help - Usage tips.
-  /track - Track media.
-  /find - Explore networks.
-  /list - Analyze data.
-  /about - cooperate together.
-  /config - Customize setting.
-  """
-### ========================== ###
+{join} = path       #
+### ============= ###
 
-### ============================================== ###
-startText =
-  """
-  Software provides nimble web-data operations.
-  Current state: MVP. Usage: /help. More: /about.
-  """
-### ============================================== ###
+### ================================================================ ###
+db = level join( __dirname, '..', 'db-users'), {valueEncoding:'json'}  #
+### ================================================================ ###
+
+### ======================================== ###
+net.createServer((con) ->                      #
+  con.pipe(multilevel.server(db)).pipe con     #
+  return                                       #
+).listen LEVEL_PORT                            #
+### ======================================== ###
 
 ### ============================================== ###
 aboutText =
   """
   Undertherules, MIT license
   Copyright (c) 2016 Mikhail G. Lutsenko
-  Package: http://npmjs.com/package/undertherules
-  Mail: m.g.lutsenko@gmail.com
-  Telegram: @sociometrics
   """
 ### ============================================== ###
 

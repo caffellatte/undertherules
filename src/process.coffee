@@ -6,7 +6,6 @@
 {                                #
   KUE_PORT,                      #
   LEVEL_PORT,                    #
-  TELEGRAM_TOKEN                 #
 }                 = process.env  #
 ### ========================== ###
 
@@ -55,21 +54,6 @@ clusterWorkerSize = require('os').cpus().length - 1  #
 ### =============================== ###
 queue             = kue.createQueue() #
 ### =============================== ###
-
-### ======================================================== ###
-tg = new Telegram.Telegram TELEGRAM_TOKEN, {workers: 1} # tg   #
-### ======================================================== ###
-
-### ====================================================================== ###
-sendMessage = (data, done) ->                       # Telegram Send  Message #
-  {chatId, text} = data                                                      #
-  if !chatId? or !text?                                                      #
-    log "Error! [sendMessage] Faild to send messsage: #{text} to #{chatId}." #
-    return done(new Error("Error! [sendMessage] Faild to send messsage."))   #
-  tg.api.sendMessage chatId, text                                            #
-  done()                                                                     #
-  return                                                                     #
-### ====================================================================== ###
 
 ### ======================================================================== ###
 startHandler = (data, done) ->                              # Start Handler    #
