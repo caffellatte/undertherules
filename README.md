@@ -14,13 +14,7 @@ Current state: Development version.
 
 ### Install system packages
 ```
-  apt-get install sudo curl build-essential htop mc git-core tree
-```
-
-### Install Node
-```
-  curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash -
-  sudo apt-get install -y nodejs
+  apt-get install sudo curl build-essential htop mc git-core tree ibnspr4-dev
 ```
 
 ### Create new user
