@@ -14,7 +14,7 @@ Current state: Development version.
 
 ### Install system packages
 ```
-  apt-get install sudo curl build-essential htop mc git-core tree ibnspr4-dev
+  apt-get install sudo curl build-essential htop mc git-core tree initctl
 ```
 
 ### Create new user

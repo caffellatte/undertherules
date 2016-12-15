@@ -1,0 +1,16 @@
+{
+  "name": "undertherules",
+  "version": "0.2.0",
+  "description": "Track, find, mining, parsing & analyzing data from social networks.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caffellatte/undertherules.git"
+  },
+  "author": "m.g.lutsenko@gmail.com",
+  "license": "MIT",
+  "homepage": "https://github.com/caffellatte/undertherules#readme",
+  "dependencies": {
+    "node-static": "^0.7.9",
+    "sockjs": "^0.3.18"
+  }
+}
