@@ -12,7 +12,7 @@ Import modules
     sockjs = require('sockjs')
     node_static = require('node-static')
 
-1. Echo sockjs server
+Echo sockjs server (1)
 
     sockjs_opts = sockjs_url: 'http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js'
     sockjs_echo = sockjs.createServer(sockjs_opts)
@@ -22,11 +22,11 @@ Import modules
         return
       return
 
-2. Static files server
+Static files server (2)
 
     static_directory = new (node_static.Server)(STATIC_PATH)
 
-3. Usual http stuff
+Usual http stuff (3)
 
     server = http.createServer()
     server.addListener 'request', (req, res) ->
