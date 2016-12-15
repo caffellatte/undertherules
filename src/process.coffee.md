@@ -2,10 +2,9 @@ Module provides **nimble** web-data operations.
 
 Extract environment varibles
 
-    {
-      STATIC_PATH
-    }  = process.env
-
+    {STATIC_PATH} = process.env
+    console.log 'Static directory:', STATIC_PATH
+ 
 Import modules
 
     http = require('http')
