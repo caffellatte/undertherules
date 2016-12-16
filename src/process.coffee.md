@@ -3,13 +3,13 @@ Module provides **nimble** web-data operations.
 Extract environment varibles
 
     {STATIC_PATH} = process.env
-    console.log 'Static directory:', STATIC_PATH
  
 Import modules
 
-    http = require('http')
-    sockjs = require('sockjs')
-    node_static = require('node-static')
+    kue         = require 'kue'
+    http        = require 'http'
+    sockjs      = require 'sockjs'
+    node_static = require 'node-static'
 
 Echo sockjs server (1)
 
@@ -37,5 +37,15 @@ Usual http stuff (3)
     sockjs_echo.installHandlers server, prefix: '/echo'
     console.log ' [*] Listening on 0.0.0.0:9999'
     server.listen 9999, '0.0.0.0'
+
+Kue is a priority job queue backed by redis, built for node.js
+
+    kue.app.listen 3000, ->
+    console.log '[OK] Kue listening on 0.0.0.0:3000'
+      
+
+The title defaults to "Kue", to alter this invoke:
+
+    kue.app.set 'title', 'UnderTheRules'
 
 Source: https://github.com/caffellatte/undertherules

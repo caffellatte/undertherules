@@ -6,7 +6,7 @@
 #####################
 # Modules
 fs     = require('fs-extra')
-jade   = require('jade')
+jade   = require('pug')
 stylus = require('stylus')
 coffee = require('coffee-script')
 {exec} = require 'child_process'
