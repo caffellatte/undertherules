@@ -25,7 +25,7 @@ Current state: Development version.
 
 ### Install npm global packages
 ```
-  npm install -g coffee-script foreman
+  npm install -g coffee-script foreman stylus pug-cli
 ```
 
 ### Clone package from github

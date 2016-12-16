@@ -1,48 +1,49 @@
 ### Cakefile ###
 
-### Modules ============================ ###
-os            = require'os'                #
-jade          = require 'pug'              #
-stylus        = require 'stylus'           #
-fs            = require 'fs-extra'         #
-coffee        = require 'coffee-script'    #
-child_process = require 'child_process'    #
-### ============================ Modules ###
+### Modules =========================================== ###
+os            = require 'os'                              #
+jade          = require 'pug'                             #
+stylus        = require 'stylus'                          #
+fs            = require 'fs-extra'                        #
+cli_table     = require 'cli-table'                       #
+coffee        = require 'coffee-script'                   #
+child_process = require 'child_process'                   #
+helpers       = require './src/lib/core/helpers.coffee'   #
+### =========================================== Modules ###
 
-### Constants ========================= ###
-{
-  EOL,
-  constants,
-} = os
-### ========================= Constants ###
+### Constants ============================== ###
+osUtils = [                                #
+  'hostname', 'loadavg', 'uptime', 'freemem',  #
+  'totalmem', 'cpus', 'type', 'release',       #
+  'networkInterfaces', 'arch', 'platform'      #
+]                                              #
+### ============================== Constants ###
 
 ### Functions ============================== ###
-{log}     = console
-{exec}    = child_process
-{compile} = coffee
-{
- arch,
- cpus,
- endianness,
- freemem,
- homedir,
- hostname,
- loadavg,
- networkInterfaces,
- platform,
- release,
- tmpdir,
- totalmem,
- type,
- uptime,
- userInfo,
- 
-} = os
+{log}       = console                          #
+{exec}      = child_process                    #
+{compile}   = coffee                           #
+{Formatter} = helpers                          #
 ### ============================== Functions ###
 
 
-task 'public', 'Create public directory', ->
-    log 'public'
+task 'os', 'List information about Operation System.', ->
+  utils = {}
+  ({"#{util}":"#{os[util]()}"} for util in osUtils).forEach (element) ->
+    for key, value of element
+      utils[key] = value
+  {
+    hostname, loadavg, uptime, freemem, totalmem, cpus,
+    type, release, networkInterfaces, arch, platform
+  } = utils
+  log "#{hostname}, #{loadavg}"
+  # log osUtilsArr...
+  # table = new cli_table()
+  # table.push osArray...
+  # log table.toString()
+  # for utility in osData
+  #   log osUtilities, utility()
+    # log method() if typeof method is 'function' and utility in osUtilities
 
 # task 'public', 'Create public directory', ->
 #     fs.mkdirsSync './public/assets/css'
