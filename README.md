@@ -14,27 +14,24 @@ Current state: Development version.
 
 ### Install system packages
 ```
-  apt-get install sudo curl build-essential htop mc git-core tree initctl
+  apt-get install curl build-essential htop mc git-core tree
 ```
 
 ### Create new user
 ```
-  sudo useradd --home-dir /home/bot --create-home --shell /bin/bash bot
-  sudo usermod -g staff bot
+  useradd --home-dir /home/bot --create-home --shell /bin/bash bot
+  usermod -g staff bot
 ```
 
 ### Install npm global packages
 ```
-  sudo npm install -g coffee-script
+  npm install -g coffee-script
 ```
 
 ### Clone package from github
 ```
   git clone https://github.com/caffellatte/undertherules.git
 ```
-
-## Links
-* [Writing an Upstart job](https://wiki.debian.org/Upstart) -  starts and stops tasks and daemons according to event rules.
 
 ## Thanks
   * Romanovsky P. (Socialist Group)
