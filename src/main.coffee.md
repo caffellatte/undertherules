@@ -3,7 +3,7 @@ Module provides **nimble** web-data operations.
 Extract environment varibles
 
     {STATIC_PATH} = process.env
- 
+
 Import modules
 
     kue         = require 'kue'
@@ -42,10 +42,10 @@ Kue is a priority job queue backed by redis, built for node.js
 
     kue.app.listen 3000, ->
     console.log '[OK] Kue listening on 0.0.0.0:3000'
-      
+
 
 The title defaults to "Kue", to alter this invoke:
 
     kue.app.set 'title', 'UnderTheRules'
 
-Source: https://github.com/caffellatte/undertherules
+Repository: https://github.com/caffellatte/undertherules

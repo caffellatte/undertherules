@@ -25,7 +25,7 @@ Current state: Development version.
 
 ### Install npm global packages
 ```
-  npm install -g coffee-script
+  npm install -g coffee-script foreman
 ```
 
 ### Clone package from github
