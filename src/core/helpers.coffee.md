@@ -7,6 +7,7 @@ Helpful functions & constants.
 
     os        = require 'os'
     request   = require 'request'
+    cli_table = require 'cli-table'
 
 ## Export environment parameters
 
@@ -56,7 +57,7 @@ Helpful functions & constants.
 ## Extract information about OS
 The os module provides a number of operating system-related utility methods.
 
-    SystemSummary = ->
+    SysInfo = ->
       utils = {}
 
 ### Extract values into *utils*
@@ -65,6 +66,64 @@ The os module provides a number of operating system-related utility methods.
         for key, value of item
           utils[key] = parse value
       return utils
+
+## Display pretty tables with about os
+
+    DisplaySysInfo = (data) ->
+      {
+        hostname, loadavg, uptime, freemem, totalmem, cpus,
+        type, release, networkInterfaces, arch, platform
+      } = data
+
+### Information about hostname, uptime, type, release, arch, platform
+
+      mainTable = new cli_table()
+      mainTableArray = [
+        {'Hostname': hostname}
+        {'Uptime': "#{uptime//60} min."}
+        {'Architecture': arch}
+        {'Platform (type)': "#{platform} (#{type})"}
+        {'Release': release}
+      ]
+      mainTable.push mainTableArray...
+
+### CPUs information
+
+      numberOfCPUs = cpus.length
+      cpusTable = new cli_table(
+        { head: ["", "Model", "Speed", "User", "Nice", "Sys", "IDLE", "IRQ"] }
+      )
+      for i in [0..numberOfCPUs-1]
+        {model, speed, times: {user, nice, sys, idle, irq}} = cpus[i]
+        cpusTable.push { "CPU ##{i+1}": [model,speed,user,nice,sys,idle,irq]}
+
+### Memory Usage
+
+      memTable = new cli_table({ head: ["", "Free", "Total", "% of Free"] })
+      memTable.push {
+        'RAM': [
+          Formatter freemem, 1024
+          Formatter totalmem, 1024
+          "#{(freemem/totalmem*100).toFixed(2)}%"
+        ]
+      }
+
+### Load Average
+
+      loadavgTable = new cli_table({ head: ["","1 min.","5 min.","15 min."] })
+      loadavgTable.push {
+        'Load Average': [
+          loadavg[0].toFixed(3), loadavg[1].toFixed(3), loadavg[2].toFixed(3)
+        ]
+      }
+
+### Display tables
+
+      log mainTable.toString()
+      log cpusTable.toString()
+      log memTable.toString()
+      log loadavgTable.toString()
+      return
 
 ## Class for managing Kue jobs via HTTP API
 
@@ -126,7 +185,8 @@ Function return example: '2016.03.11 12:26:51'
 ## Exports functions & constants
 
     module.exports.DatePrettyString = DatePrettyString
-    module.exports.SystemSummary    = SystemSummary
+    module.exports.DisplaySysInfo   = DisplaySysInfo
+    module.exports.SysInfo          = SysInfo
     module.exports.Formatter        = Formatter
     module.exports.startText        = startText
     module.exports.aboutText        = aboutText
