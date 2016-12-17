@@ -48,4 +48,4 @@ The title defaults to "Kue", to alter this invoke:
 
     kue.app.set 'title', 'UnderTheRules'
 
-Repository: https://github.com/caffellatte/undertherules
+*More*: [undertherules](https://github.com/caffellatte/undertherules) 
