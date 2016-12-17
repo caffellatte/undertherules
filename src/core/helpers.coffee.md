@@ -9,7 +9,7 @@ Helpful functions & constants.
     request   = require 'request'
     cli_table = require 'cli-table'
 
-## Export environment parameters
+## Import environment parameters
 
     { KUE_PORT, STATIC_PATH } = process.env
 
