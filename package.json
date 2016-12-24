@@ -1,0 +1,24 @@
+{
+  "name": "undertherules",
+  "version": "0.2.1",
+  "description": "Track, find, mining, parsing & analyzing data from social networks.",
+  "dependencies": {
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caffellatte/undertherules.git"
+  },
+  "keywords": [
+    "api",
+    "bot",
+    "data",
+    "mining"
+  ],
+  "author": "m.g.lutsenko@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/caffellatte/undertherules/issues"
+  },
+  "homepage": "https://github.com/caffellatte/undertherules#readme"
+}

@@ -1,5 +1,147 @@
 
 ### ======================================================================== ###
+startHandler = (data, done) ->                              # Start Handler    #
+  {chat, text} = data                                       # ~~~~~~~~~~~~~~~~ #
+  if !chat?.id? or !text?                                                      #
+    errorText = "Error! [kue.coffee](startHandler) Faild to send text."        #
+    log errorText                                                              #
+    return done(new Error(errorText))                                          #
+  dataSendMessage =                                                            #
+    title:   "Send Message: '#{text}' to (#{chat.id})"                         #
+    chatId:  chat.id                                                           #
+    text:    text                                                              #
+  jobSendMessage  = queue.create('sendMessage', dataSendMessage).save((err) -> #
+    if !err                                                                    #
+      log "[kue.coffee] {startHandler} (OK) Kue job id: #{jobSendMessage.id}"  #
+    return                                                                     #
+  )
+  # dataNewUser =
+  #   title:   "New User: #{chatId}"
+  #   chatId:   chatId                                                           #
+  #   userData: data                                                             #
+  # jobNewUser = queue.create('newUser', dataNewUser).save((err) ->              #
+  #   if !err                                                                    #
+  #     log "[kue.coffee] {helpHandler} (OK) Kue job id: #{jobNewUser.id}"       #
+  #   return                                                                     #
+  # )                                                                            #
+  done()                                                                       #
+  return                                                                       #
+### ======================================================================== ###
+
+newUser = (data, done) ->                       # Telegram New  User #
+  {chat} = data.userData                                                      #
+  {id, type, username, first_name, last_name} = chat
+  chat.track = []
+  chat.find  = []
+  db = multilevel.client()
+  con = net.connect LEVEL_PORT
+  con.pipe(db.createRpcStream()).pipe con
+  db.get id, (err, val) ->
+    if err
+      db.put id, chat, (err) ->
+      if err
+        return done(new Error(err))
+        throw err
+      done()
+      return
+    db.close()
+    done()                                                                     #
+    return                                                                     #
+### ====================================================================== ###
+
+### ======================================================================== ###
+helpHandler = (data, done) ->                              #  Help Handler     #
+  {chat, text} = data                                      # ~~~~~~~~~~~~~~~~~ #
+  if !chat?.id? or !text?                                                      #
+    errorText = "Error! [kue.coffee](startHandler) Faild to send text."        #
+    log errorText                                                              #
+    return done(new Error(errorText))                                          #
+  dataSendMessage =                                                            #
+    title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    type:    'sendMessage'                                                     #
+    chatId:   chat.id                                                          #
+    text:    text                                                              #
+  job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    if !err                                                                    #
+      log "[kue.coffee] {helpHandler} (OK) Kue job id: #{job.id}"              #
+    return                                                                     #
+  )                                                                            #
+  done()                                                                       #
+  return                                                                       #
+### ======================================================================== ###
+
+### ======================================================================== ###
+trackHandler = (data, done) ->                              #  Track Handler   #
+  {chat, text} = data                                       #  ~~~~~~~~~~~~~~~ #
+  if !chat?.id? or !text?                                                      #
+    errorText = "Error! [kue.coffee](trackHandler) Faild to send text."        #
+    log errorText                                                              #
+    return done(new Error(errorText))                                          #
+  dataSendMessage =                                                            #
+    title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    type:    'sendMessage'                                                     #
+    chatId:  chat.id                                                           #
+    text:    text                                                              #
+  job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    if !err                                                                    #
+      log "[kue.coffee] {trackHandler} (OK) Kue job id: #{job.id}."            #
+    return                                                                     #
+  )                                                                            #
+  # if !chatId? or !url? or !type? or !network? or !mediaId?               #   #
+  #   errorText = """
+  #   Error! [kue.coffee](trackHandler).
+  #   Faild to track #{type}, #{url} (#{network}) for #{chatId}.
+  #   """                                                                        #
+  #   log errorText                                                              #
+  #   return done(new Error(errorText))                                          #
+  # db = multilevel.client()
+  # con = net.connect LEVEL_PORT
+  # con.pipe(db.createRpcStream()).pipe con
+  # db.get chatId, (err, val) ->
+  #   if err
+  #     return done(new Error(err))
+  #     throw err
+  #   val.track.push url
+  #   db.put chatId, val, (err) ->
+  #   if err
+  #     return done(new Error(err))
+  #     throw err
+  #   done()
+  #   return
+  #   console.log val
+  #   db.close()
+  # requestTrackInstagramMedia =
+  #   url: "http://localhost:#{KUE_PORT}/job"
+  #   headers: 'Content-Type': 'application/json'
+  #   method:  'POST'                                  #
+  #   title:   "Track Handler '#{title}' to (#{chatId})"
+  #   chatId:   chatId                                       #
+  #   mediaId:  mediaId
+  # jobType = "track#{network[0].toUpperCase()}#{network[1..]}#{type[0].toUpperCase()}#{type[1..]}Handler"
+  # job = queue.create(jobType, requestTrackInstagramMedia).removeOnComplete( true ).save((err) ->      #
+  #   if !err                                                                    #
+  #     log "[kue.coffee] {trackHandler} (OK) Kue job id: #{job.id}"                            #
+  #   return                                                                     #
+  # )
+  # requestDataSendMessage =
+  #   url: "http://localhost:#{KUE_PORT}/job"
+  #   headers: 'Content-Type': 'application/json'
+  #   method:  'POST'                                  #
+  #   title:   "Send Message: '#{title}' to (#{chatId})"
+  #   type:    'sendMessage'                                #
+  #   chatId:   chatId                                       #
+  #   text:    "Instagram media id: #{mediaId}" # Stats
+  # jobSendMessage = queue.create('sendMessage', requestDataSendMessage).save((err) ->      #
+  #   if !err                                                                    #
+  #     log "[kue.coffee] {sendMessage} (OK) Kue job id: #{jobSendMessage.id}"                            #
+  #   return                                                                     #
+  # )                                                                            #
+  # done()                                                                       #
+  # return                                                                       #
+### ======================================================================== ###
+
+
+### ======================================================================== ###
 # createSaveJob = (type, job) -> # Create Save Kue Job
 #   {data, log} = job
 #   {hashtag, nodes} = data
@@ -49,43 +191,6 @@
 #       return done new Error(error)
 ### ======================================================================== ###
 ### ====================================================================== ###
-# module.exports.VK = () ->
-# require './callVkApi.js'
-#
-# # vkLinkParser.coffee
-# vkLinkParser = (video) ->
-#     if '?' in path
-#         id = path.split('/')[1].split('?')[0].replace('video','')
-#         {z} = querystring.parse query
-#         id = z.split('/')[0].replace('video','')
-#     else
-#         id = path.split('/')[1].replace('video','')
-#     _id = id
-#   next links
-# global.vkVideoGet = (next, retry, video) ->
-#   {hostname, href, path, query} = link
-#   # console.log video
-#   {id, href, hostname} = video
-#   callVkApi 'video.get',
-#     videos:         id
-#     # offset:         offset
-#     # count:          loadPerPart
-#     extended:       1
-#     access_token: '9e050d8ecb1ccae91faf5dc035b1eddd5f247ac311851a5e68d4e26c00b7c06b88e4a95300b1282030768' # 'e7ddcbe871c91ccbc993d60047e945cf093b2ed0c62ccd377cdc8a82cb4c3bada24057544073984df731f'
-#   , null, (vkResp) ->
-#     # console.log JSON.stringify vkResp, null, 2
-#     {items} = vkResp
-#     {date, views, comments, likes, repeat} = items[0]
-#     Time = date
-#     stats =
-#       views_count: views
-#       updated: +new Date()//1000
-#       likes_count: likes.count
-#       comments_count: comments
-#       # repeat: repeat
-#     # console.log {link: href, created: Time, stats: stats, source: hostname}
-#     # process.exit 0
-#     next {link: href, created: Time, stats: stats, source: hostname}
 # module.exports.OK = () ->
 # querystring = require 'querystring'
 # _           = require 'lodash'

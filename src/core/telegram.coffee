@@ -230,3 +230,123 @@ module.exports.OtherwiseController = OtherwiseController           #
 #     | Copyright (c) 2016 Mikhail G. Lutsenko (m.g.lutsenko@gmail.com) |
 #     |          https://github.com/caffellatte/undertherules           |
 #     ===================================================================
+
+    #
+    # ### ======================================================================== ###
+    # findHandler = (data, done) ->                                #  Find Handler   #
+    #   {chat, text} = data                                        #  ~~~~~~~~~~~~~~ #
+    #   if !chat?.id? or !text?                                                      #
+    #     errorText = "Error! [kue.coffee](findHandler) Faild to send text."         #
+    #     log errorText                                                              #
+    #     return done(new Error(errorText))                                          #
+    #   dataSendMessage =                                                            #
+    #     title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    #     type:    'sendMessage'                                                     #
+    #     chatId:  chat.id                                                           #
+    #     text:    text                                                              #
+    #   job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    #     if !err                                                                    #
+    #       log "[kue.coffee] {findHandler} (OK) Kue job id: #{job.id}."             #
+    #     return                                                                     #
+    #   )                                                                            #
+    #   done()                                                                       #
+    #   return                                                                       #
+    # ### ======================================================================== ###
+    #
+    # ### ======================================================================== ###
+    # listHandler = (data, done) ->                                #  List Handler   #
+    #   {chat, text} = data                                        #  ~~~~~~~~~~~~~~ #
+    #   if !chat?.id? or !text?                                                      #
+    #     errorText = "Error! [kue.coffee](listHandler) Faild to send text."         #
+    #     log errorText                                                              #
+    #     return done(new Error(errorText))                                          #
+    #   dataSendMessage =                                                            #
+    #     title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    #     type:    'sendMessage'                                                     #
+    #     chatId:  chat.id                                                           #
+    #     text:    text                                                              #
+    #   job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    #     if !err                                                                    #
+    #       log "[kue.coffee] {listHandler} (OK) Kue job id: #{job.id}."             #
+    #     return                                                                     #
+    #   )                                                                            #
+    #   done()                                                                       #
+    #   return                                                                       #
+    # ### ======================================================================== ###
+    #
+    # ### ======================================================================== ###
+    # aboutHandler = (data, done) ->                              #  About Handler   #
+    #   {chat, text} = data                                       # ~~~~~~~~~~~~~~~~ #
+    #   if !chat?.id? or !text?                                                      #
+    #     errorText = "Error! [kue.coffee](aboutHandler) Faild to send text."        #
+    #     log errorText                                                              #
+    #     return done(new Error(errorText))                                          #
+    #   dataSendMessage =                                                            #
+    #     title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    #     type:    'sendMessage'                                                     #
+    #     chatId:  chat.id                                                           #
+    #     text:    text                                                              #
+    #   job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    #     if !err                                                                    #
+    #       log "[kue.coffee] {aboutHandler} (OK) Kue job id: #{job.id}."            #
+    #     return                                                                     #
+    #   )                                                                            #
+    #   done()                                                                       #
+    #   return                                                                       #
+    # ### ======================================================================== ###
+    #
+    # ### ======================================================================== ###
+    # configHandler = (data, done) ->                              #  Config Handler #
+    #   {chat, text} = data                                        #  ~~~~~~~~~~~~~~ #
+    #   if !chat?.id? or !text?                                                      #
+    #     errorText = "Error! [kue.coffee](configHandler) Faild to send text."       #
+    #     log errorText                                                              #
+    #     return done(new Error(errorText))                                          #
+    #   dataSendMessage =                                                            #
+    #     title:   "Send Message: '#{text}' to (#{chat.id})."                        #
+    #     type:    'sendMessage'                                                     #
+    #     chatId:  chat.id                                                           #
+    #     text:    text                                                              #
+    #   job = queue.create('sendMessage', dataSendMessage).save((err) ->             #
+    #     if !err                                                                    #
+    #       log "[kue.coffee] {configHandler} (OK) Kue job id: #{job.id}."           #
+    #     return                                                                     #
+    #   )                                                                            #
+    #   done()                                                                       #
+    #   return                                                                       #
+    # ### ======================================================================== ###
+    #
+    # ### =============================== ###
+    # queue             = kue.createQueue() #
+    # ### =============================== ###
+    #
+    # ### ======================================================== ###
+    # tg = new Telegram.Telegram TELEGRAM_TOKEN, {workers: 1} # tg #
+    # ### ======================================================== ###
+
+    return
+
+### ======================================================================= ###
+tg.router  # Telegram Bot Router declaration code                             #
+  # start                                                                     #
+  .when new TextCommand('start',  'startCommand'),   new StartController()    #
+  # help                                                                      #
+  .when new TextCommand('help',   'helpCommand'),    new HelpController()     #
+  # track                                                                     #
+  .when new TextCommand('track',  'trackCommand'),   new TrackController()    #
+  # find                                                                      #
+  .when new TextCommand('find',   'findCommand'),    new FindController()     #
+  # list                                                                      #
+  .when new TextCommand('list',   'listCommand'),    new ListController()     #
+  # about                                                                     #
+  .when new TextCommand('about',  'aboutCommand'),   new AboutController()    #
+  # config                                                                    #
+  .when new TextCommand('config', 'configCommand'),  new ConfigController()   #
+  # otherwise                                                                 #
+  .otherwise new OtherwiseController()                                        #
+### ======================================================================= ###
+
+#     ===================================================================
+#     | Copyright (c) 2016 Mikhail G. Lutsenko (m.g.lutsenko@gmail.com) |
+#     |        https://github.com/caffellatte/undertherules             |
+#     ===================================================================

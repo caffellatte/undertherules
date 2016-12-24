@@ -14,6 +14,10 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
     { STATIC_PATH } = process.env
 
+## Extract helpful Functions
+
+    { log } = console
+
 ## A simple static file server middleware. Using it with a raw http server
 
     ecstatic = require('ecstatic')(STATIC_PATH)
