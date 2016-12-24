@@ -1,25 +1,33 @@
-.box
-    width 300px
-    float left
-    margin 0 20px 0 20px
-    div
-        border-color grey
-        height 300px
-        overflow auto
-    input
-        height 30px
-
-.box div, .box input
-    border 1px solid
-    -moz-border-radius 4px
-    border-radius 4px
+form
+    background #000
+    padding 3px
+    position fixed
+    bottom 0
     width 100%
-    padding 0px
-    margin 5px
+    input
+        border 0
+        padding 10px
+        width 90%
+        margin-right .5%
+    button
+        width 9%
+        background rgb(130, 224, 255)
+        border none
+        padding 10px
+
+#messages
+    list-style-type none
+    margin 0
+    padding 0
+    li
+        padding 5px 10px
+        &:nth-child(odd)
+            background #eee
 
 h1
     margin-left 30px
+    font-size 13px
 
 body
     background-image url("svg/grid.svg")
-    font-family "Arial"
+    font-family Helvetica, "Arial"

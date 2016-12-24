@@ -1,15 +1,12 @@
 ### Cakefile ###
 
-### Modules ============================================== ###
-pug           = require 'pug'                                #
-stylus        = require 'stylus'                             #
-fs            = require 'fs-extra'                           #
+pug           = require 'pug'
+stylus        = require 'stylus'
+fs            = require 'fs-extra'
 browserify    = require 'browserify'
 coffeeify     = require 'coffeeify'
-helpers       = require './src/core/helpers.coffee.md'       #
-### ============================================== Modules ###
+helpers       = require './src/core/helpers.coffee.md'
 
-### Consts ================================================== ###
 utf8 = encoding: 'utf8'
 templatePug  = "#{__dirname}/src/htdocs/template.pug"
 indexHtml    = "#{__dirname}/static/index.html"
@@ -18,56 +15,42 @@ styleCss     = "#{__dirname}/static/style.css"
 mainCoffeeMd = "#{__dirname}/src/htdocs/main.coffee.md"
 bundleJs     = "#{__dirname}/static/bundle.js"
 svgHtdocs    = "#{__dirname}/src/htdocs/svg"
-svgStatic    =  "#{__dirname}/static/svg"
+svgStatic    = "#{__dirname}/static/svg"
 _env =
   """
-  KUE_PORT=#{Math.floor(Math.random() * (8999 - 8001) + 8001)}
+  DNODE_PORT=#{Math.floor(Math.random() * (8499 - 8001) + 8001)}
+  KUE_PORT=#{Math.floor(Math.random() * (8999 - 8500) + 8500)}
   STATIC_PATH="#{__dirname}/static/"
   """
 _Procfile =
   """
-  dnode: coffee #{__dirname}/src/core/dnode.coffee.md
+  hive: coffee #{__dirname}/src/core/hive.coffee.md
   """
 
-### ================================================== Consts ###
-
-### Functions ===================================================== ###
-{log}       = console                                                 #
+{log}       = console
 {exec}      = require 'child_process'
-{Formatter, SysInfo, DisplaySysInfo} = helpers                        #
-{writeFileSync, readFileSync, removeSync, mkdirsSync, copySync} = fs  #
-### ===================================================== Functions ###
+{Formatter, SysInfo, DisplaySysInfo} = helpers
+{writeFileSync, readFileSync, removeSync, mkdirsSync, copySync} = fs
 
-### Start =========================================================== ###
-task 'start', 'Start application using node-foreman', ->
-  exec 'nf start', (err, stdout, stderr) ->
-    log stdout if stdout
-    log stderr if stderr
-    throw err    if err
-### =========================================================== Start ###
+task 'os', 'Display information about Operation System.', ->
+  DisplaySysInfo SysInfo()
 
-### OS ====================================================== ###
-task 'os', 'Display information about Operation System.', ->    #
-  DisplaySysInfo SysInfo()                                      #
-### ====================================================== OS ###
+task 'env', 'Add .env, Procfile (foreman) & database folders.', ->
+  writeFileSync "#{__dirname}/.env", _env
+  writeFileSync "#{__dirname}/Procfile", _Procfile
+  mkdirsSync    "#{__dirname}/.db/tg"
+  mkdirsSync    "#{__dirname}/.db/vk"
 
-### .env & Procfile ================================================== ###
-task 'env', 'Create .env & Procfile for using with node-foreman.', ->    #
-  writeFileSync "#{__dirname}/.env", _env                                #
-  writeFileSync "#{__dirname}/Procfile", _Procfile                       #
-### ================================================== .env & Procfile ###
-
-### htdocs ============================================================== ###
-task 'htdocs:static', 'Create (mkdir) `static` folder.', ->     #
-  mkdirsSync 'static'                              # Create `static` folder #
+task 'htdocs:static', 'Create (mkdir) `static` folder.', ->
+  mkdirsSync "#{__dirname}/static"
   copySync svgHtdocs, svgStatic
 
 task 'htdocs:pug', 'Render (transform) pug template to html', ->
-  writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)  # Pug  #
+  writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
 
 task 'htdocs:stylus', 'Render (transform) stylus template to css', ->
-  stylus.render readFileSync(styleStyl, utf8), (err, css) ->       # Stylus #
-    if err then throw err                                                   #
+  stylus.render readFileSync(styleStyl, utf8), (err, css) ->
+    if err then throw err
     writeFileSync styleCss, css
                                                  #
 task 'htdocs:browserify', 'Render (transform) coffee template to js', ->
@@ -86,13 +69,11 @@ task 'htdocs', 'Build client-side app & save into `static` folder.', ->     #
     invoke 'htdocs:pug'
     invoke 'htdocs:stylus'
     invoke 'htdocs:browserify'
-### ============================================================== htdocs ###
 
-### clean ======================================================= ###
-task 'clean', 'Remove `.env` file, `static` folder & etc.', ->      #
+task 'clean', 'Remove `.env` file, `static` folder & etc.', ->
   [
     "#{__dirname}/.env"
     "#{__dirname}/static"
     "#{__dirname}/Procfile"
-  ].forEach (item) -> removeSync item              #
-### ======================================================= clean ###
+    "#{__dirname}/Procfile"
+  ].forEach (item) -> removeSync item

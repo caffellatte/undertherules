@@ -1,16 +1,15 @@
-# Under the rules of Sociometry
+# UTR-Sociometry
 
-> Track, find, mining, parsing & analyzing data from social networks.
+Track, find, mining, parsing & analyzing data from social networks.
 
-Software provides nimble web-data operations.
-Current state: Development version.
+> Software provides nimble web-data operations.
+  Current state: Development version.
 
 ## Stack
 
-  * Tested on Debian 8.5 x64 powered by [flops](https://flops.ru/?refid=18288) cloud-hosting.
   * [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript.
 
-## Environment
+## Environment (for Debian 8)
 
 ### Install system packages
 ```
@@ -25,13 +24,17 @@ Current state: Development version.
 
 ### Install npm global packages
 ```
-  npm install -g coffee-script foreman stylus pug-cli ecstatic
+  npm install -g coffee-script foreman
 ```
 
 ### Clone package from github
 ```
   git clone https://github.com/caffellatte/undertherules.git
 ```
+
+## Links
+* Install [node and npm](https://gist.github.com/isaacs/579814) without sudo.
+* Install and config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew.
 
 ## Thanks
   * Romanovsky P. (Socialist Group)

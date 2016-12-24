@@ -1,16 +1,19 @@
 # main.coffee.md
 
-    domready = require('domready')
-    shoe = require('shoe')
-    dnode = require('dnode')
+## Import NPM modules
+
+    shoe     = require 'shoe'
+    dnode    = require 'dnode'
+    domready = require 'domready'
+
+## Wait for DOM tree
+
     domready ->
-      result = document.getElementById('result')
+
+      result = document.getElementById('chat')
       stream = shoe('/dnode')
       d = dnode()
       d.on 'remote', (remote) ->
-        remote.transform 'beep', (s) ->
+        remote.echo 'beep', (s) ->
           result.textContent = 'beep => ' + s
-          return
-        return
       d.pipe(stream).pipe d
-      return
