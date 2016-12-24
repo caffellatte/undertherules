@@ -78,7 +78,6 @@ task 'htdocs:browserify', 'Render (transform) coffee template to js', ->
     header: false
   bundle.add mainCoffeeMd
   bundle.bundle (error, js) ->
-    log error
     throw error if error?
     writeFileSync bundleJs, js
 
@@ -86,7 +85,7 @@ task 'htdocs', 'Build client-side app & save into `static` folder.', ->     #
     invoke 'htdocs:static'
     invoke 'htdocs:pug'
     invoke 'htdocs:stylus'
-    # invoke 'stylus'
+    invoke 'htdocs:browserify'
 ### ============================================================== htdocs ###
 
 ### clean ======================================================= ###

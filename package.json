@@ -3,6 +3,20 @@
   "version": "0.2.1",
   "description": "Track, find, mining, parsing & analyzing data from social networks.",
   "dependencies": {
+    "browserify": "^13.1.1",
+    "cli-table": "^0.3.1",
+    "coffeeify": "^2.1.0",
+    "dnode": "^1.2.2",
+    "domready": "^1.0.8",
+    "ecstatic": "^2.1.0",
+    "fs-extra": "^1.0.0",
+    "kue": "^0.11.5",
+    "pug": "^2.0.0-beta6",
+    "request": "^2.79.0",
+    "shoe": "0.0.15",
+    "sockjs": "^0.3.18",
+    "sockjs-client": "^1.1.1",
+    "stylus": "^0.54.5"
   },
   "devDependencies": {},
   "repository": {
