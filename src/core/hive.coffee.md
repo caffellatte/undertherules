@@ -17,7 +17,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 ## Extract functions & constans from modules
 
     { log }                               = console
-    { cpus }                              = helpers.SysInfo()
+    { cpus, DatePrettyString }            = helpers.SysInfo()
     { DNODE_PORT, KUE_PORT, STATIC_PATH } = process.env
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
@@ -26,20 +26,8 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
 ## Define API object providing integration vith dnode
 
-    echo = (data, done) ->
-      log data
-      done()
-
     API =
-      echo: (s, cb) ->
-        job = queue.create('echo',
-          title: 'echo'
-          data: s).save((err) ->
-          if !err
-            console.log job.id
-          return
-        )
-        log s
+      dateTime: (s, cb) ->
         cb s
         return
 
@@ -77,9 +65,7 @@ as starting the web app bundled with Kue.
 
       sock = shoe((stream) ->
         d = dnode API
-        medium = d.pipe(stream)
-        end = medium.pipe(d)
-        log end
+        d.pipe(stream).pipe(d)
       )
       sock.install server, '/dnode'
 
@@ -94,6 +80,4 @@ as starting the web app bundled with Kue.
 
     else
       {id} = cluster.worker
-      log "Current worker [#{id}]"
-      queue.process 'echo', (job, done) ->
-        echo job.data, done
+      log "Worker [#{id}] started."

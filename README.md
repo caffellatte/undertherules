@@ -35,6 +35,7 @@ Track, find, mining, parsing & analyzing data from social networks.
 ## Links
 * Install [node and npm](https://gist.github.com/isaacs/579814) without sudo.
 * Install and config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew.
+* [Programming Is a Nightmare](https://programmingisanightmare.com) by A. Kovalyov.
 
 ## Thanks
   * Romanovsky P. (Socialist Group)

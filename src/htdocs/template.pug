@@ -2,10 +2,11 @@ doctype html
 html
   head
     link(rel='stylesheet' type='text/css' href='style.css')
+    script(src='http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js')
   body(lang='en')
-    h1 UTR-Sociometry
-    ul(id="messages")
-    form(action="")
-      input(id="m" autocomplete="off")
-      button Send
-    script(src="bundle.js")
+    div(id='content')
+      div(id='dateTime')
+      div(id='searchBlock')
+      div(id='footer')
+        a(href='http://github.com/caffellatte/undertherules') UTR-Sociometry
+    script(src='bundle.js')

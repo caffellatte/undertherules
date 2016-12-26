@@ -7,4 +7,6 @@ Source: https://github.com/caffellatte/undertherules.git
 
   * Add CHANGELOG.md
   * Rename stack.coffee.md to hive.coffee.md
-  * Add level-graph via npm (save to package.json)
+  * Add level-graph via npm
+  * DateTime for web
+  * Add coffeelint via npm (coffeelint.json)
