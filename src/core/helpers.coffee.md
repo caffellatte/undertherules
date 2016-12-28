@@ -47,11 +47,9 @@ Helpful functions & constants.
 
 ## OS utility methods array
 
-    osUtils = [
-      'hostname', 'loadavg', 'uptime', 'freemem',
+    osUtils = ['hostname', 'loadavg', 'uptime', 'freemem',
       'totalmem', 'cpus', 'type', 'release',
-      'networkInterfaces', 'arch', 'platform'
-    ]
+      'networkInterfaces', 'arch', 'platform']
 
 
 ## Extract information about OS
@@ -59,15 +57,11 @@ The os module provides a number of operating system-related utility methods.
 
     SysInfo = ->
       utils = {}
-
-
-### *Extract values into utils*
-
-      utils = ({"#{util}":"#{stringify(os[util]())}"} for util in osUtils)
-      return utils.forEach (item) ->
+      ({"#{utl}":"#{stringify(os[utl]())}"} for utl in osUtils).forEach( (item) ->
         for key, value of item
           utils[key] = parse(value)
-
+      )
+      return utils
 
 ### Display pretty tables with about os
 Extract vars from data object.
@@ -76,8 +70,6 @@ Extract vars from data object.
     DisplaySysInfo = (data) ->
       {hostname, loadavg, uptime, freemem, totalmem}           = data
       {cpus, type, release, networkInterfaces, arch, platform} = data
-      return data
-
 
 ### Information about hostname, uptime, type, release, arch, platform
 
@@ -174,18 +166,17 @@ Simple coffeescript method to  convert a unix timestamp to  a date.
 Function return example: '2016.03.11 12:26:51'
 http://stackoverflow.com/questions/847185/
 
-
     DatePrettyString = (timestamp, sep = ' ') ->
       zeroPad = (x) ->
         return if x < 10 then '0' + x else '' + x
-      date = new Date(1000) * timestamp
+      date = new Date(timestamp)
       d = zeroPad(date.getDate())
-      m = zeroPad(date.getMonth())
+      m = +zeroPad(date.getMonth()) + 1
       y = date.getFullYear()
       h = zeroPad(date.getHours())
       n = zeroPad(date.getMinutes())
       s = zeroPad(date.getSeconds())
-      return "#{y}.#{m}.#{d}#{sep}#{h}:#{n + 1}:#{s}"
+      return "#{y}.#{m}.#{d}#{sep}#{h}:#{n}:#{s}"
 
 
 ## Formatter for big numbers

@@ -7,18 +7,19 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
 ## Import NPM modules
 
-    kue        = require 'kue'
-    http       = require 'http'
-    shoe       = require 'shoe'
-    dnode      = require 'dnode'
-    cluster    = require 'cluster'
-    helpers    = require './helpers.coffee.md'
+    kue        = require('kue')
+    http       = require('http')
+    shoe       = require('shoe')
+    dnode      = require('dnode')
+    cluster    = require('cluster')
+    helpers    = require('./helpers.coffee.md')
 
 ## Extract functions & constans from modules
 
-    { log }                               = console
-    { cpus, DatePrettyString }            = helpers.SysInfo()
-    { DNODE_PORT, KUE_PORT, STATIC_PATH } = process.env
+    {log}                               = console
+    {cpus}                              = helpers.SysInfo()
+    {DatePrettyString}                  = helpers
+    {DNODE_PORT, KUE_PORT, STATIC_PATH} = process.env
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
@@ -26,10 +27,11 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
 ## Define API object providing integration vith dnode
 
-    API =
+    API = {
       dateTime: (s, cb) ->
-        cb s
-        return
+        currentDateTime = DatePrettyString(s)
+        cb(currentDateTime)
+    }
 
 ## Parallel Processing With Cluster
 
@@ -41,9 +43,9 @@ as starting the web app bundled with Kue.
 
 ## Start Kue
 
-      kue.app.set 'title', 'Under The Rules'
+      kue.app.set('title', 'Under The Rules')
       kue.app.listen KUE_PORT, ->
-        log "Priority job queue (cluster) successful started. Listen port: #{KUE_PORT}."
+        log("Priority queue (cluster) started. Listen port: #{KUE_PORT}.")
 
 ## A simple static file server middleware. Using it with a raw http server
 
@@ -56,28 +58,28 @@ as starting the web app bundled with Kue.
 ## Start Dnode
 
       server.listen DNODE_PORT, ->
-        log """
+        log("""
         RPC module (dnode) successful started. Listen port: #{DNODE_PORT}.
         Web: http://0.0.0.0:#{DNODE_PORT}
-        """
+        """)
 
 ## Use dnode via shoe & Install endpoint
 
       sock = shoe((stream) ->
-        d = dnode API
+        d = dnode(API)
         d.pipe(stream).pipe(d)
       )
-      sock.install server, '/dnode'
+      sock.install(server, '/dnode')
 
 ## Fork workers
 
       i = 0
       while i < cpus.length
         cluster.fork()
-        i++
+        i += 1
 
 ## The logic in the else block is executed **per worker**.
 
     else
       {id} = cluster.worker
-      log "Worker [#{id}] started."
+      log("Worker [#{id}] started.")

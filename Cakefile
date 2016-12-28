@@ -17,8 +17,8 @@ bundleJs        = "#{__dirname}/static/bundle.js"
 svgHtdocs       = "#{__dirname}/src/htdocs/svg"
 svgStatic       = "#{__dirname}/static/svg"
 helpersCoffeeMd = "#{__dirname}/src/core/helpers.coffee.md"
-helpersCoffeeMd = "#{__dirname}/src/core/helpers.coffee.md"
-Procfile        = "#{__dirname}/Procfile"
+hiveCoffeeMd    = "#{__dirname}/src/core/hive.coffee.md"
+_Procfile       = "#{__dirname}/Procfile"
 _dbVk           = "#{__dirname}/.db/vk"
 _dbTg           = "#{__dirname}/.db/tg"
 _static         = "#{__dirname}/static"
@@ -29,7 +29,7 @@ env =
   KUE_PORT=#{Math.floor(Math.random() * (8999 - 8500) + 8500)}
   STATIC_PATH="#{__dirname}/static/"
   """
-_Procfile =
+Procfile =
   """
   hive: coffee #{__dirname}/src/core/hive.coffee.md
   """
@@ -40,19 +40,20 @@ _Procfile =
 {writeFileSync, readFileSync, removeSync, mkdirsSync, copySync} = fs
 
 task 'hint', 'JavaScript Source Code Analyzer via coffee-jshint', ->
-  command = 'coffeelint ' + helpersCoffeeMd
+  command = 'coffeelint ' + "#{helpersCoffeeMd} #{hiveCoffeeMd}"
   exec command, (err, stdout, stderr) ->
     log('coffeelint ', helpersCoffeeMd)
     log(stdout, stderr)
 
 task 'os', 'Display information about Operation System.', ->
-  DisplaySysInfo SysInfo()
+  data = SysInfo()
+  DisplaySysInfo(data)
 
 task 'env', 'Add .env, Procfile (foreman) & database folders.', ->
   writeFileSync _env, env
   log "write file #{_env}"
-  writeFileSync Procfile, _Procfile
-  log "write file #{Procfile}"
+  writeFileSync _Procfile, Procfile
+  log "write file #{_Procfile}"
 
   mkdirsSync _dbVk
   log "make dir   #{_dbVk}"
@@ -71,7 +72,7 @@ task 'htdocs:stylus', 'Render (transform) stylus template to css', ->
   handler = (err, css) ->
     if err then throw err
     writeFileSync styleCss, css
-    log('read file ', styleStyl, '} -> ', styleCss)
+    log "render file #{styleStyl} -> #{styleCss}"
   content = readFileSync(styleStyl, utf8)
   stylus.render(content, handler)
                                                  #
@@ -85,7 +86,7 @@ task 'htdocs:browserify', 'Render (transform) coffee template to js', ->
   bundle.bundle (error, js) ->
     throw error if error?
     writeFileSync bundleJs, js
-    log "write file #{bundleJs} -> #{js}"
+    log "render file #{mainCoffeeMd} -> #{bundleJs}"
 
 task 'htdocs', 'Build client-side app & save into `static` folder.', ->     #
     invoke 'htdocs:static'
@@ -97,7 +98,8 @@ task 'clean', 'Remove `.env` file, `static` folder & etc.', ->
   [
     _env
     _static
-    Procfile
+    _Procfile
+    '.db'
   ].forEach (item) ->
     removeSync item
     log "removeSync #{item}"
