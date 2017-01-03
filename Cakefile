@@ -63,6 +63,8 @@ task 'env', 'Add .env, Procfile (foreman) & database folders.', ->
 task 'htdocs:static', 'Create (mkdir) `static` folder.', ->
   mkdirsSync _static
   log "make folder #{_static}"
+  copySync svgHtdocs, svgStatic
+  log "copy folder #{svgHtdocs} -> #{svgStatic}"
 
 task 'htdocs:pug', 'Render (transform) pug template to html', ->
   writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)

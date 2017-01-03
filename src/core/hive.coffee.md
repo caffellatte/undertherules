@@ -1,5 +1,4 @@
-kue.coffee
-==========
+# hive.coffee.md
 
 * Kue job (task) processing that include the most part of bakcground work.
 * Dnode uses the streaming interface provided by shoe,which is just
