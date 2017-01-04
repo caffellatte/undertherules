@@ -14,8 +14,8 @@ styleStyl       = "#{__dirname}/src/htdocs/style.styl"
 styleCss        = "#{__dirname}/static/style.css"
 mainCoffeeMd    = "#{__dirname}/src/htdocs/main.coffee.md"
 bundleJs        = "#{__dirname}/static/bundle.js"
-svgHtdocs       = "#{__dirname}/src/htdocs/svg"
-svgStatic       = "#{__dirname}/static/svg"
+imgHtdocs       = "#{__dirname}/src/htdocs/img"
+imgStatic       = "#{__dirname}/static/img"
 helpersCoffeeMd = "#{__dirname}/src/core/helpers.coffee.md"
 hiveCoffeeMd    = "#{__dirname}/src/core/hive.coffee.md"
 _Procfile       = "#{__dirname}/Procfile"
@@ -23,6 +23,8 @@ _dbVk           = "#{__dirname}/.db/vk"
 _dbTg           = "#{__dirname}/.db/tg"
 _static         = "#{__dirname}/static"
 _env            = "#{__dirname}/.env"
+favicon         = "#{__dirname}/src/htdocs/favicon.ico"
+_favicon        = "#{__dirname}/static/favicon.ico"
 env =
   """
   DNODE_PORT=#{Math.floor(Math.random() * (8499 - 8001) + 8001)}
@@ -63,8 +65,10 @@ task 'env', 'Add .env, Procfile (foreman) & database folders.', ->
 task 'htdocs:static', 'Create (mkdir) `static` folder.', ->
   mkdirsSync _static
   log "make folder #{_static}"
-  copySync svgHtdocs, svgStatic
-  log "copy folder #{svgHtdocs} -> #{svgStatic}"
+  copySync imgHtdocs, imgStatic
+  log "copy folder #{imgHtdocs} -> #{imgStatic}"
+  copySync favicon, _favicon
+  log "copy file #{favicon} -> #{_favicon}"
 
 task 'htdocs:pug', 'Render (transform) pug template to html', ->
   writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)

@@ -30,6 +30,9 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       dateTime: (s, cb) ->
         currentDateTime = DatePrettyString(s)
         cb(currentDateTime)
+      search: (s, cb) ->
+        log(s)
+        cb(s)
     }
 
 ## Parallel Processing With Cluster
