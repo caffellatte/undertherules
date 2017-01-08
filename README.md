@@ -1,53 +1,78 @@
 # UTR-Sociometry
 
-Track, find, mining, parsing & analyzing data from social networks.
+Software provides data capture and subsequent processing and
+analysis of the data earned from the social networks.
 
-> Software provides nimble web-data operations.
-  Current state: Development version.
+> Track, find, mining, parsing & analyzing data from social networks.
 
-## Stack
+The aim of the development of the automated system is to replace the existing
+solutions a new, more flexible tool, adapted to the needs of the researcher.
+Develops products will be endowed into **full-stack** solution written using
+Coffee-script both on server & client sides. Current state: `development`.
 
-  * [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript.
+## Architecture
 
-## Environment (for Debian 8)
+| Section | Technology | Functions |
+| ------------- | ---------- | -------- |
+| Runtime environment | Node.js | JavaScript interpreter (engine) |
+| In-memory data storage | Redis | Key-value data structure server |  
+| Main language | CoffeeScript | Syntax sugar that compiles into JavaScript |
+| Queue server | Kue |  Priority job queue backed by Redis |
+| Database storage | LevelUP | Node.js-style LevelDB wrapper |
+| Graph database interface | LevelGraph | Graph database (hexastore approach) |
+| RPC system  | Dnode | Asynchronous socket service via sockjs |
+| Clustering tool | Node Foreman | Manager for Procfile-based applications |
 
-### Install system packages
-```
-  apt-get install curl build-essential htop mc git-core tree
-```
+## Installation
 
-### Create new user
-```
-  useradd --home-dir /home/bot --create-home --shell /bin/bash bot
-  usermod -g staff bot
-```
+### Create new user (optional)
 
-### Install npm global packages
-```
-  npm install -g coffee-script foreman
-```
+    useradd --home-dir /home/bot --create-home --shell /bin/bash bot
+    usermod -g staff bot
+
+### Install Node.js global packages
+
+    npm install -g coffee-script coffee-jshint foreman
 
 ### Clone package from github
-```
-  git clone https://github.com/caffellatte/undertherules.git
-```
+
+    git clone https://github.com/caffellatte/undertherules.git
+    cd undertherules
+    npm install
+
+## Usage
+
+Run application with Node Foreman:
+
+    nf start
 
 ## Links
-* Install [node and npm](https://gist.github.com/isaacs/579814) without sudo.
-* Install and config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew.
-* [Programming Is a Nightmare](https://programmingisanightmare.com) by A. Kovalyov.
+
+- [Dnode](https://www.npmjs.com/package/dnode)
+- [Node Foreman](https://www.npmjs.com/package/foreman)
+- [Markdown Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
+- Install [node and npm](https://gist.github.com/isaacs/579814) without sudo
+- Install and config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
+- [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript
+
+## Contribution
+
+To release a new version:
+
+    git checkout master
+    npm version <major|minor|patch>
+    git push && git push --tags
+    npm publish
 
 ## Thanks
-  * Romanovsky P. (Socialist Group)
-  * Ashomko A. (Tiger Milk)
-  * Pivkin P. (Buzz Like)
-  * Korotun V. (Buzz Like)
-  * Grigoriev E. (Esprite Games)
-  * Bogomolov A. (Uroboros Team)
-  * Akhmetov A. (RTA Moscow)
-  * Maas E. (TASS News Agency)
+
+Romanovsky P. (Socialist Group); Ashomko A. (TigerMilk); Pivkin P. (BuzzLike);
+Korotun V. (BuzzLike); Grigoriev E. (Esprite Games); Bogomolov A. (NMO);
+Akhmetov A. (RTA Moscow) ; Maas E. (TASS News Agency).
+
 
 ## LICENSE
+
 MIT License
 
 Copyright (c) 2016 Mikhail G. Lutsenko (m.g.lutsenko@gmail.com)

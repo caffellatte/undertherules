@@ -8,21 +8,40 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
     kue        = require('kue')
     http       = require('http')
+    path       = require('path')
     shoe       = require('shoe')
     dnode      = require('dnode')
+    request    = require('request')
     cluster    = require('cluster')
     helpers    = require('./helpers.coffee.md')
+    Telegram   = require('telegram-node-bot')
 
 ## Extract functions & constans from modules
 
-    {log}                               = console
-    {cpus}                              = helpers.SysInfo()
-    {DatePrettyString}                  = helpers
-    {DNODE_PORT, KUE_PORT, STATIC_PATH} = process.env
+    {log}                                   = console
+    {cpus}                                  = helpers.SysInfo()
+    {parse}                                 = require 'url'
+    {TextCommand}                           = Telegram
+    {DatePrettyString, Formatter}           = helpers
+    {findHandler, helpHandler, listHandler} = helpers
+    {startHandler, aboutHandler}            = helpers
+    {configHandler, trackHandler}           = helpers
+    {StartController, HelpController}       = helpers
+    {TrackController, FindController}       = helpers
+    {ListController, AboutController}       = helpers
+    {ConfigController, OtherwiseController} = helpers
+    {sendMessage}                           = helpers
+    {DNODE_PORT, KUE_PORT, STATIC_PATH}     = process.env
+    {TELEGRAM_TOKEN}                        = process.env
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
     queue = kue.createQueue()
+
+## Create Telegram instance interface
+
+    tg = new Telegram.Telegram TELEGRAM_TOKEN, {workers: 1}
+
 
 ## Define API object providing integration vith dnode
 
@@ -34,6 +53,18 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
         log(s)
         cb(s)
     }
+
+## Telegram Bot Router
+
+    tg.router
+      .when new TextCommand('start',  'startCommand'),   new StartController(queue)
+      .when new TextCommand('help',   'helpCommand'),    new HelpController(queue)
+      .when new TextCommand('track',  'trackCommand'),   new TrackController(queue)
+      .when new TextCommand('find',   'findCommand'),    new FindController(queue)
+      .when new TextCommand('list',   'listCommand'),    new ListController(queue)
+      .when new TextCommand('about',  'aboutCommand'),   new AboutController(queue)
+      .when new TextCommand('config', 'configCommand'),  new ConfigController(queue)
+      .otherwise new OtherwiseController()
 
 ## Parallel Processing With Cluster
 
@@ -75,7 +106,7 @@ as starting the web app bundled with Kue.
 
 ## Fork workers
 
-      i = 0
+      i = 1
       while i < cpus.length
         cluster.fork()
         i += 1
@@ -85,3 +116,11 @@ as starting the web app bundled with Kue.
     else
       {id} = cluster.worker
       log("Worker [#{id}] started.")
+      queue.process 'sendMessage', (job, done) -> sendMessage   job.data, tg, done
+      queue.process 'start',       (job, done) -> startHandler  job.data, queue, done
+      queue.process 'help',        (job, done) -> helpHandler   job.data, queue, done
+      queue.process 'track',       (job, done) -> trackHandler  job.data, queue, done
+      queue.process 'find',        (job, done) -> findHandler   job.data, queue, done
+      queue.process 'list',        (job, done) -> listHandler   job.data, queue, done
+      queue.process 'about',       (job, done) -> aboutHandler  job.data, queue, done
+      queue.process 'config',      (job, done) -> configHandler job.data, queue, done
