@@ -8,6 +8,8 @@ Helpful functions & constants.
     os         = require('os')
     fs         = require('fs-extra')
     pug        = require('pug')
+    dnode      = require('dnode')
+    crypto     = require('crypto')
     request    = require('request')
     stylus     = require('stylus')
     cli_table  = require('cli-table')
@@ -22,7 +24,7 @@ Helpful functions & constants.
 
 ## Import environment parameters
 
-    {KUE_PORT, STATIC_PATH} = process.env
+    {KUE_PORT, STATIC_PATH, DNODE_PORT, LEVEL_DNODE_PORT} = process.env
     utf8 = {encoding:'utf8'}
 
 ## Extract functions from modules
@@ -37,8 +39,6 @@ Helpful functions & constants.
 
     helpText = '''
       /start - Create profile
-      /watch - Supervise media
-      /brief - Generate report
       /panel - Goto dashboad
       /about - Contacts & etc
       /help - List of commands
@@ -48,7 +48,7 @@ Helpful functions & constants.
       Flexible environment for social network analysis (SNA).
       Software provides full-cycle of retrieving and subsequent
       processing data from the social networks.
-      Usage: /help. More: /about.'''
+      Usage: /help. More: /about. Dashboard: /panel.'''
 
     aboutText = '''
       Undertherules, MIT license
@@ -63,7 +63,6 @@ Helpful functions & constants.
     osUtils = ['hostname', 'loadavg', 'uptime', 'freemem',
       'totalmem', 'cpus', 'type', 'release',
       'networkInterfaces', 'arch', 'platform']
-
 
 ## Extract information about OS
 The os module provides a number of operating system-related utility methods.
@@ -172,15 +171,13 @@ http://stackoverflow.com/questions/847185/
 
 ## cake env
 
-    Env = (_env, env, _Procfile, Procfile, _dbVk, _dbTg) ->
+    Env = (_env, env, _Procfile, Procfile, _db) ->
       writeFileSync _env, env
       log "write file #{_env}"
       writeFileSync _Procfile, Procfile
       log "write file #{_Procfile}"
-      mkdirsSync
-      log "make dir   #{_dbVk}"
-      mkdirsSync _dbTg
-      log "make dir   #{_dbTg}"
+      mkdirsSync _db
+      log "make dir   #{_db}"
 
 ## cake htdocStatic
 
@@ -263,6 +260,7 @@ http://stackoverflow.com/questions/847185/
             title:"[#{type}] #{data.chat.id}> #{data.text}"
             text:data.text
             chat:data.chat.id
+            _data:data
           }
           options:_options
         }
@@ -280,28 +278,31 @@ http://stackoverflow.com/questions/847185/
 ## Start Handler
 
     startHandler = (data, done) ->
-      {chat, text} = data
+      {chat, text, _data} = data
       if !chat? or !text?
         errorText = "Error! (startHandler): #{data}"
         log errorText
         return done(new Error(errorText))
-      dataSendMessage =
-        title: "startHandler: [#{text}]: #{chat})"
-        chat:  {id: chat}
-        text:  text
-      KueJob.create('sendMessage', dataSendMessage)
-      done()
+      d = dnode.connect(LEVEL_DNODE_PORT)
+      d.on 'remote', (remote) ->
+        remote.start _data, (s) ->
+          d.end()
+          dataSendMessage =
+            title: "startHandler: [#{text}]: #{chat})"
+            chat:  {id: chat}
+            text:  text + "\nYour profile id: #{s.subject}."
+          KueJob.create('sendMessage', dataSendMessage)
+          done()
 
 # Class StartController
 
     class StartController extends TelegramBaseController
       constructor: () ->
       startHandler: ($) ->
-        type    = 'start'
         data    =
           text: startText
           chat: $.message.chat
-        KueJob.create(type, data)
+        KueJob.create('start', data)
       @property 'routes',
         get: -> 'startCommand': 'startHandler'
 
@@ -325,78 +326,12 @@ http://stackoverflow.com/questions/847185/
     class HelpController extends TelegramBaseController
       constructor: () ->
       helpHandler: ($) ->
-        type    = 'help'
         data    =
           text: helpText
           chat: $.message.chat
-        KueJob.create(type, data)
+        KueJob.create('help', data)
       @property 'routes',
         get: -> 'helpCommand': 'helpHandler'
-
-##  Watch Handler
-
-    watchHandler = (data, done) ->
-      {chat, text} = data
-      if !chat? or !text?
-        errorText = "Error at watchHandler!"
-        log errorText
-        return done(new Error(errorText))
-      dataSendMessage =
-        title: "watchHandler: [#{text}]: #{chat})"
-        chat:  {id: chat}
-        text:  text
-      KueJob.create('sendMessage', dataSendMessage)
-      done()
-
-## Class TrackController
-
-    class WatchController extends TelegramBaseController
-      constructor: () ->
-      watchHandler: ($) ->
-        {message} =  $
-        form =
-          queryText:
-            q: 'Type search query (link, id, tag or ...):'
-            error: 'Sorry, wrong input, send only one correct queries.'
-            validator: (message, callback) ->
-              {text, entities, chat} = message
-              if text? and text.length > 1
-                callback true, text
-              else
-                callback false
-        $.runForm form, (result) =>
-          {queryText} = result
-          KueJob.create('track', {text: queryText, chat: $.message.chat})
-      @property 'routes',
-        get: -> 'watchCommand': 'watchHandler'
-
-## Brief Handler
-
-    briefHandler = (data, done) ->
-      {chat, text} = data
-      if !chat?.id? or !text?
-        errorText = "Error! [kue.coffee](findHandler) Faild to send text."
-        log errorText
-        return done(new Error(errorText))
-      dataSendMessage =
-        title: "briefHandler: [#{text}]: #{chat})"
-        chat:  {id: chat}
-        text:  text
-      KueJob.create('sendMessage', dataSendMessage)
-      done()
-
-## Class FindController
-
-    class BriefController extends TelegramBaseController
-      constructor: () ->
-      briefHandler: ($) ->
-        type    = 'find'
-        data    =
-          text: 'Error! Try /find later.'
-          chat: $.message.chat
-        KueJob.create(type, data)
-      @property 'routes',
-        get: -> 'briefCommand': 'briefHandler'
 
 ## About Handler
 
@@ -434,23 +369,28 @@ http://stackoverflow.com/questions/847185/
         errorText = "Error! at panelHandler. Faild to send text."
         log errorText
         return done(new Error(errorText))
-      dataSendMessage =
-        title: "panelHandler: [#{text}]: #{chat})"
-        chat:  {id: chat}
-        text:  text
-      KueJob.create('sendMessage', dataSendMessage)
-      done()
+      d = dnode.connect(LEVEL_DNODE_PORT)
+      d.on 'remote', (remote) ->
+        remote.panel chat, (s) ->
+          {subject, object} = s
+          {user, pass} =  DnodeCrypto subject, object
+          d.end()
+          dataSendMessage =
+            title: "panelHandler: [#{text}]: #{chat})"
+            chat:  {id: chat}
+            text:  text + "\n http://0.0.0.0:#{DNODE_PORT}/?_s=#{user}:#{pass}." # Generate link
+          KueJob.create('sendMessage', dataSendMessage)
+          done()
 
 ## Class ConfigController
 
     class PanelController extends TelegramBaseController
       constructor: () ->
       panelHandler: ($) ->
-        type    = 'config'
         data    =
-          text: 'Error! Try /config later.'
+          text: 'Link allows you to access the dashboad.\nIt will expire after every 24 hours.'
           chat: $.message.chat
-        KueJob.create(type, data)
+        KueJob.create('panel', data)
       @property 'routes',
         get: -> 'panelCommand': 'panelHandler'
 
@@ -463,8 +403,19 @@ http://stackoverflow.com/questions/847185/
         $.sendMessage 'Unknown commands. Try /help.'
         return
 
+## Telegram + Web Auth
+
+    DnodeCrypto = (subject, object) ->
+      nub = +new Date() // (1000 * 60 * 60 * 24)
+      _a = subject % nub + nub * subject
+      _b = object % subject + object % nub + subject % nub + (object - subject) // nub
+      _login = subject * nub
+      _passwd = crypto.createHash('md5').update("#{_b}#{subject}#{_a}#{object}").digest("hex")
+      return {user: _login, pass: _passwd}
+
 ## Exports functions & constants
 
+    module.exports.DnodeCrypto         = DnodeCrypto
     module.exports.DatePrettyString    = DatePrettyString
     module.exports.DisplaySysInfo      = DisplaySysInfo
     module.exports.SysInfo             = SysInfo
@@ -483,10 +434,6 @@ http://stackoverflow.com/questions/847185/
     module.exports.startHandler        = startHandler
     module.exports.helpHandler         = helpHandler
     module.exports.HelpController      = HelpController
-    module.exports.watchHandler        = watchHandler
-    module.exports.WatchController     = WatchController
-    module.exports.briefHandler        = briefHandler
-    module.exports.BriefController     = BriefController
     module.exports.aboutHandler        = aboutHandler
     module.exports.AboutController     = AboutController
     module.exports.panelHandler        = panelHandler

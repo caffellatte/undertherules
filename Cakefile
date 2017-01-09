@@ -14,16 +14,17 @@ imgStatic       = "#{__dirname}/static/img"
 helpersCoffeeMd = "#{__dirname}/src/core/helpers.coffee.md"
 hiveCoffeeMd    = "#{__dirname}/src/core/hive.coffee.md"
 _Procfile       = "#{__dirname}/Procfile"
-_dbVk           = "#{__dirname}/.db/vk"
-_dbTg           = "#{__dirname}/.db/tg"
+_db             = "#{__dirname}/.db/"
 _static         = "#{__dirname}/static"
 _env            = "#{__dirname}/.env"
 favicon         = "#{__dirname}/src/htdocs/img/favicon.ico"
 _favicon        = "#{__dirname}/static/favicon.ico"
 env =
   """
+  LEVEL_DNODE_PORT=9004
+  LEVEL_PATH="#{_db}"
   TELEGRAM_TOKEN=""
-  DNODE_PORT=#{Math.floor(Math.random() * (8499 - 8001) + 8001)}
+  DNODE_PORT=#{Math.floor(Math.random() * (8499 - 8000) + 8000)}
   KUE_PORT=#{Math.floor(Math.random() * (8999 - 8500) + 8500)}
   STATIC_PATH="#{__dirname}/static/"
   """
@@ -32,6 +33,7 @@ Procfile =
   kue: coffee #{__dirname}/src/core/kue.coffee.md
   telegram: coffee #{__dirname}/src/core/telegram.coffee.md
   dnode: coffee #{__dirname}/src/core/dnode.coffee.md
+  level: coffee #{__dirname}/src/core/level.coffee.md
   """
 
 task 'hint', 'JavaScript Source Code Analyzer via coffee-jshint', ->
@@ -41,7 +43,7 @@ task 'os', 'Display information about Operation System.', ->
   DisplaySysInfo(SysInfo())
 
 task 'env', 'Add .env, Procfile (foreman) & database folders.', ->
-  Env(_env, env, _Procfile, Procfile, _dbVk, _dbTg)
+  Env(_env, env, _Procfile, Procfile, _db)
 
 task 'clean', 'Remove `.env` file, `static` folder & etc.', ->
   Clean(_env, _static, _Procfile)

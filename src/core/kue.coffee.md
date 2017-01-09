@@ -45,7 +45,7 @@ as starting the web app bundled with Kue.
           # job.remove ->
             # console.log 'removed ', job.id
       kue.app.listen KUE_PORT, ->
-        log("Priority queue (cluster) started. Listen port: #{KUE_PORT}.")
+        log("Priority queue (cluster) started.\nWeb: http://0.0.0.0:#{KUE_PORT}.")
 
 ## Fork workers
 

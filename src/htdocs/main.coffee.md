@@ -5,6 +5,7 @@
     shoe     = require 'shoe'
     dnode    = require 'dnode'
     domready = require 'domready'
+    {parse}  = require 'url'
     {log}    = console
 
 ## Class Interface
@@ -16,6 +17,14 @@
       constructor: (Dnode) ->
         Dnode.on 'remote', (remote) =>
           @remote = remote
+          {query} = parse(window.location.href)
+          credentials = query.replace('_s=', '').split(':')
+          @remote.auth credentials[0], credentials[1], (err, session) ->
+            if err
+              console.error err
+              return Dnode.end()
+            else
+              log session
 
 *Add Event Listener*
 
@@ -72,7 +81,7 @@
         barStyle = "width:#{cliWidth}px;height:#{barHeight}px;"
         @bar.setAttribute('style', barStyle)
         # background-position
-        mainStyle += "background-position: center #{barHeight - 1}px;"
+        mainStyle += "background-position: center #{barHeight + 2}px;"
         @main.setAttribute('style', mainStyle)
         # watchImg
         watchImgSize = barHeight - 7
@@ -94,6 +103,8 @@
             @output.innerHTML += "<code class='rep'>#{s}</code><br>"
           return false
         return
+
+### **Display**
 
       display: =>
         if @cli.style.display is 'none'

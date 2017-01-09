@@ -5,10 +5,12 @@
     http       = require('http')
     shoe       = require('shoe')
     dnode      = require('dnode')
+    helpers    = require('./helpers.coffee.md')
 
 ## Extract functions & constans from modules
 
-    {DNODE_PORT, STATIC_PATH} = process.env
+    {DnodeCrypto} = helpers
+    {DNODE_PORT, STATIC_PATH, LEVEL_DNODE_PORT} = process.env
     {log}                     = console
 
 ## A simple static file server middleware. Using it with a raw http server
@@ -21,14 +23,29 @@
 
 ## Define API object providing integration vith dnode
 
-    API = {
+    API =
       dateTime: (s, cb) ->
         # currentDateTime = DatePrettyString(s)
         cb(currentDateTime)
       search: (s, cb) ->
         log(s)
         cb(s)
-    }
+      auth: (_user, _pass, cb) ->
+        if typeof cb != 'function'
+          return
+        ld = dnode.connect(LEVEL_DNODE_PORT)
+        ld.on 'remote', (remote) ->
+          id = _user / (+new Date() // (1000 * 60 * 60 * 24))
+          remote.panel id, (s) ->
+            {subject, object} = s
+            ld.end()
+            {user, pass} = DnodeCrypto subject, object
+            if +_user is +user and _pass is pass
+              console.log 'signed in: ' + subject
+              cb null, subject
+            else
+              cb 'ACCESS DENIED'
+            return
 
 ## Start Dnode
 
