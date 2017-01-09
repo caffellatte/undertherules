@@ -1,8 +1,6 @@
-helpers.coffee
-==============
+# helpers.coffee.md
 
 Helpful functions & constants.
-
 
 ## Import NPM modules
 
@@ -38,25 +36,27 @@ Helpful functions & constants.
 ## Texts & other string content
 
     helpText = '''
-      /start - Create profile.
-      /help - Usage tips.
-      /track - Track media.
-      /find - Explore networks.
-      /list - Analyze data.
-      /about - cooperate together.
-      /config - Customize setting.'''
+      /start - Create profile
+      /watch - Supervise media
+      /brief - Generate report
+      /panel - Goto dashboad
+      /about - Contacts & etc
+      /help - List of commands
+      '''
 
     startText = '''
-      Software provides nimble web-data operations.
-      Current state: Demo. Usage: /help. More: /about.'''
+      Flexible environment for social network analysis (SNA).
+      Software provides full-cycle of retrieving and subsequent
+      processing data from the social networks.
+      Usage: /help. More: /about.'''
 
     aboutText = '''
       Undertherules, MIT license
       Copyright (c) 2016 Mikhail G. Lutsenko
-      Package: https://github.com/caffellatte/undertherules
       Mail: m.g.lutsenko@gmail.com
       Telegram: @sociometrics'''
 
+    githubText = 'Package: https://github.com/caffellatte/undertherules'
 
 ## OS utility methods array
 
@@ -133,41 +133,6 @@ Extract vars from data object.
       log(cpusTable.toString())
       log( memTable.toString())
       log(loadavgTable.toString())
-
-
-## Class for managing Kue jobs via HTTP API
-
-    class KueJobHelper
-      constructor:(@name = 'utr') ->
-        @url     = "http://localhost:#{KUE_PORT}/job"
-        @headers = {'Content-Type':'application/json'}
-        @method  = 'POST'
-      create:(type, data, options) ->
-        requestData = {
-          url:@url
-          headers:@headers
-          method:@method
-        }
-        _options = {
-          attempts:options.attempts
-          priority:options.priority
-          delay:options.delay
-        }
-        requestData.json = {
-          type:type
-          data:{
-            title:"StartHandler. [#{data.chat.id}]: #{data.text}"
-            text:data.text
-            chat:data.chat
-          }
-          options:_options
-        }
-        requestHandler = (error, response, body) ->
-          if error
-            log(JSON.stringify(error, null, 2))
-          else
-            log('[helpers.coffee] OK, body.message Kue id: ' + body.id)
-        request(requestData, requestHandler)
 
 ## Timestamp to pretty date transform
 Simple coffeescript method to  convert a unix timestamp to  a date.
@@ -257,7 +222,6 @@ http://stackoverflow.com/questions/847185/
         writeFileSync bundleJs, js
         log "render file #{mainCoffeeMd} -> #{bundleJs}"
 
-
 ## cake clean
 
     Clean = (_env, _static, _Procfile) ->
@@ -270,342 +234,225 @@ http://stackoverflow.com/questions/847185/
           removeSync item
           log "removeSync #{item}"
 
-### *Telegram Send  Message*
+## Class for managing Kue jobs via HTTP API
 
-    sendMessage = (data, tg, done) ->
-      {chatId, text} = data
-      if !chatId? or !text?
-        log "Error! [sendMessage] Faild to send messsage: #{text} to #{chatId}."
-        return done(new Error("Error! [sendMessage] Faild to send messsage."))
-      tg.api.sendMessage chatId, text
-      done()
-      return
+    class KueJobHelper
+      constructor:(@name = 'utr') ->
+        @url     = "http://0.0.0.0:#{KUE_PORT}/job"
+        @headers = {'Content-Type':'application/json'}
+        @method  = 'POST'
+      create:(type, data) ->
+        requestData = {
+          url:@url
+          headers:@headers
+          method:@method
+        }
+        if not data.options?
+          data.options  =
+            attempts: 5
+            priority: 'normal'
+            delay: 0
+        _options = {
+          attempts:data.options.attempts
+          priority:data.options.priority
+          delay:data.options.delay
+        }
+        requestData.json = {
+          type:type
+          data:{
+            title:"[#{type}] #{data.chat.id}> #{data.text}"
+            text:data.text
+            chat:data.chat.id
+          }
+          options:_options
+        }
+        requestHandler = (error, response, body) ->
+          if error
+            log(JSON.stringify(error, null, 2))
+          else
+            log("HTTP-API> #{body.message} Kue id: #{body.id}")
+        request(requestData, requestHandler)
+
+### Create instance of class
+
+    KueJob = new KueJobHelper()
 
 ## Start Handler
 
-    startHandler = (data, queue, done) ->
+    startHandler = (data, done) ->
       {chat, text} = data
-      if !chat?.id? or !text?
-        errorText = "Error! [kue.coffee](startHandler) Faild to send text."
+      if !chat? or !text?
+        errorText = "Error! (startHandler): #{data}"
         log errorText
         return done(new Error(errorText))
       dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})"
-        chatId:  chat.id
-        text:    text
-      jobSendMessage  = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {startHandler} (OK) Kue job id: #{jobSendMessage.id}"
-        return
-      )
+        title: "startHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
       done()
-      return
+
+# Class StartController
+
+    class StartController extends TelegramBaseController
+      constructor: () ->
+      startHandler: ($) ->
+        type    = 'start'
+        data    =
+          text: startText
+          chat: $.message.chat
+        KueJob.create(type, data)
+      @property 'routes',
+        get: -> 'startCommand': 'startHandler'
 
 ##  Help Handler
 
-    helpHandler = (data, queue, done) ->
+    helpHandler = (data, done) ->
       {chat, text} = data
-      if !chat?.id? or !text?
+      if !chat? or !text?
         errorText = "Error! [kue.coffee](startHandler) Faild to send text."
         log errorText
         return done(new Error(errorText))
       dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:   chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {helpHandler} (OK) Kue job id: #{job.id}"
-        return
-      )
+        title: "helpHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
       done()
-      return
 
-##  Track Handler
+## Class HelpController
 
-    trackHandler = (data, queue, done) ->
+    class HelpController extends TelegramBaseController
+      constructor: () ->
+      helpHandler: ($) ->
+        type    = 'help'
+        data    =
+          text: helpText
+          chat: $.message.chat
+        KueJob.create(type, data)
+      @property 'routes',
+        get: -> 'helpCommand': 'helpHandler'
+
+##  Watch Handler
+
+    watchHandler = (data, done) ->
       {chat, text} = data
-      if !chat?.id? or !text?
-        errorText = "Error! [kue.coffee](trackHandler) Faild to send text."
+      if !chat? or !text?
+        errorText = "Error at watchHandler!"
         log errorText
         return done(new Error(errorText))
       dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:  chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {trackHandler} (OK) Kue job id: #{job.id}."
-        return
-      )
+        title: "watchHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
       done()
-      return
 
-## Find Handler
+## Class TrackController
 
-    findHandler = (data, queue, done) ->
+    class WatchController extends TelegramBaseController
+      constructor: () ->
+      watchHandler: ($) ->
+        {message} =  $
+        form =
+          queryText:
+            q: 'Type search query (link, id, tag or ...):'
+            error: 'Sorry, wrong input, send only one correct queries.'
+            validator: (message, callback) ->
+              {text, entities, chat} = message
+              if text? and text.length > 1
+                callback true, text
+              else
+                callback false
+        $.runForm form, (result) =>
+          {queryText} = result
+          KueJob.create('track', {text: queryText, chat: $.message.chat})
+      @property 'routes',
+        get: -> 'watchCommand': 'watchHandler'
+
+## Brief Handler
+
+    briefHandler = (data, done) ->
       {chat, text} = data
       if !chat?.id? or !text?
         errorText = "Error! [kue.coffee](findHandler) Faild to send text."
         log errorText
         return done(new Error(errorText))
       dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:  chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {findHandler} (OK) Kue job id: #{job.id}."
-        return
-      )
+        title: "briefHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
       done()
-      return
 
-## List Handler
+## Class FindController
 
-    listHandler = (data, queue, done) ->
-      {chat, text} = data
-      if !chat?.id? or !text?
-        errorText = "Error! [kue.coffee](listHandler) Faild to send text."
-        log errorText
-        return done(new Error(errorText))
-      dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:  chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {listHandler} (OK) Kue job id: #{job.id}."
-        return
-      )
-      done()
-      return
+    class BriefController extends TelegramBaseController
+      constructor: () ->
+      briefHandler: ($) ->
+        type    = 'find'
+        data    =
+          text: 'Error! Try /find later.'
+          chat: $.message.chat
+        KueJob.create(type, data)
+      @property 'routes',
+        get: -> 'briefCommand': 'briefHandler'
 
 ## About Handler
 
-    aboutHandler = (data, queue, done) ->
+    aboutHandler = (data, done) ->
       {chat, text} = data
-      if !chat?.id? or !text?
+      if !chat? or !text?
         errorText = "Error! [kue.coffee](aboutHandler) Faild to send text."
         log errorText
         return done(new Error(errorText))
       dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:  chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {aboutHandler} (OK) Kue job id: #{job.id}."
-        return
-      )
+        title: "aboutHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
       done()
-      return
-
-## Config Handler
-
-    configHandler = (data, queue, done) ->
-      {chat, text} = data
-      if !chat?.id? or !text?
-        errorText = "Error! [kue.coffee](configHandler) Faild to send text."
-        log errorText
-        return done(new Error(errorText))
-      dataSendMessage =
-        title:   "Send Message: '#{text}' to (#{chat.id})."
-        type:    'sendMessage'
-        chatId:  chat.id
-        text:    text
-      job = queue.create('sendMessage', dataSendMessage).save((err) ->
-        if !err
-          log "[kue.coffee] {configHandler} (OK) Kue job id: #{job.id}."
-        return
-      )
-      done()
-      return
-
-# Class StartController
-
-    class StartController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      startHandler: ($) ->
-        type    = 'start'
-        _options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
-        data    =
-          text: startText
-          chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[StartController] Kue job id: #{job.id}."
-          return
-        )
-      @property 'routes',
-        get: -> 'startCommand': 'startHandler'
-
-## Class HelpController
-
-    class HelpController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      helpHandler: ($) ->
-        type    = 'help'
-        _options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
-        data    =
-          text: helpText
-          chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[HelpController] Kue job id: #{job.id}."
-          return
-        )
-      @property 'routes',
-        get: -> 'helpCommand': 'helpHandler'
-
-## Class
-
-    class TrackController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      trackHandler: ($) ->
-        {message} =  $
-        form =
-          link:
-            q: 'Link for tracking:'
-            error: 'Sorry, wrong input, send only one correct link.'
-            validator: (message, callback) ->
-              {text, entities, chat} = message
-              attachments = _.map entities, (item) ->
-                {type, offset, length} = item
-                if type is 'url'
-                  {url: text[offset..offset+length]}
-              if attachments?[0]?.url? and attachments.length is 1
-                callback true, attachments
-              else
-                callback false
-        $.runForm form, (result) =>
-          {url} = result.link[0]
-          type    = 'track'
-          _options =
-            attempts: 5
-            priority: 'high'
-            delay: 10
-          data    =
-            text: url
-            chat: $.message.chat
-            options: _options
-          job = @queue.create(type, data).save((err) ->
-            if !err
-              log "[HelpController] Kue job id: #{job.id}."
-            return
-          )
-      @property 'routes',
-        get: -> 'trackCommand': 'trackHandler'
-
-## Class FindController
-
-    class FindController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      findHandler: ($) ->
-        type    = 'find'
-        options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
-        data    =
-          text: 'Error! Try /find later.'
-          chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[HelpController] Kue job id: #{job.id}."
-          return
-        )
-      @property 'routes',
-        get: -> 'findCommand': 'findHandler'
-
-## Class ListController
-
-    class ListController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      listHandler: ($) ->
-        type    = 'list'
-        _options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
-        data    =
-          text: 'Error! Try /list later.'
-          chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[HelpController] Kue job id: #{job.id}."
-          return
-        )
-      @property 'routes',
-        get: -> 'listCommand': 'listHandler'
-
 
 ## Class AboutController
 
     class AboutController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
+      constructor: () ->
       aboutHandler: ($) ->
         type    = 'about'
-        _options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
         data    =
           text: aboutText
           chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[HelpController] Kue job id: #{job.id}."
-          return
-        )
+        KueJob.create(type, data)
       @property 'routes',
         get: -> 'aboutCommand': 'aboutHandler'
 
+## Panel Handler
+
+    panelHandler = (data, done) ->
+      {chat, text} = data
+      if !chat? or !text?
+        errorText = "Error! at panelHandler. Faild to send text."
+        log errorText
+        return done(new Error(errorText))
+      dataSendMessage =
+        title: "panelHandler: [#{text}]: #{chat})"
+        chat:  {id: chat}
+        text:  text
+      KueJob.create('sendMessage', dataSendMessage)
+      done()
 
 ## Class ConfigController
 
-    class ConfigController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
-      configHandler: ($) ->
+    class PanelController extends TelegramBaseController
+      constructor: () ->
+      panelHandler: ($) ->
         type    = 'config'
-        _options =
-          attempts: 5
-          priority: 'high'
-          delay: 10
         data    =
           text: 'Error! Try /config later.'
           chat: $.message.chat
-          options: _options
-        job = @queue.create(type, data).save((err) ->
-          if !err
-            log "[HelpController] Kue job id: #{job.id}."
-          return
-        )
+        KueJob.create(type, data)
       @property 'routes',
-        get: -> 'configCommand': 'configHandler'
+        get: -> 'panelCommand': 'panelHandler'
 
 ## Class OtherwiseController
 
@@ -632,22 +479,18 @@ http://stackoverflow.com/questions/847185/
     module.exports.HtdocsBrowserify    = HtdocsBrowserify
     module.exports.HtdocsStatic        = HtdocsStatic
     module.exports.Clean               = Clean
+    module.exports.StartController     = StartController
     module.exports.startHandler        = startHandler
     module.exports.helpHandler         = helpHandler
-    module.exports.trackHandler        = trackHandler
-    module.exports.findHandler         = findHandler
-    module.exports.listHandler         = listHandler
-    module.exports.aboutHandler        = aboutHandler
-    module.exports.configHandler       = configHandler
-    module.exports.KueJobHelper        = KueJobHelper
-    module.exports.sendMessage         = sendMessage
-    module.exports.StartController     = StartController
     module.exports.HelpController      = HelpController
-    module.exports.TrackController     = TrackController
-    module.exports.FindController      = FindController
-    module.exports.ListController      = ListController
+    module.exports.watchHandler        = watchHandler
+    module.exports.WatchController     = WatchController
+    module.exports.briefHandler        = briefHandler
+    module.exports.BriefController     = BriefController
+    module.exports.aboutHandler        = aboutHandler
     module.exports.AboutController     = AboutController
-    module.exports.ConfigController    = ConfigController
+    module.exports.panelHandler        = panelHandler
+    module.exports.PanelController     = PanelController
     module.exports.OtherwiseController = OtherwiseController
 
 ## More: [undertherules](https://github.com/caffellatte/undertherules)

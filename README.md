@@ -1,9 +1,9 @@
 # UTR-Sociometry
 
-Software provides data capture and subsequent processing and
-analysis of the data earned from the social networks.
+Flexible environment for social network analysis (SNA). Software provides
+full-cycle of retrieving and subsequent processing data from the social networks.
 
-> Track, find, mining, parsing & analyzing data from social networks.
+> parsing & analyzing social networks data.
 
 The aim of the development of the automated system is to replace the existing
 solutions a new, more flexible tool, adapted to the needs of the researcher.

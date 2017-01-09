@@ -1,5 +1,4 @@
-main.coffee.md
-==============
+# main.coffee.md
 
 ## Import NPM modules
 
@@ -24,15 +23,22 @@ main.coffee.md
 
 *Get Elements*
 
-        @mainBlock   = document.getElementById('mainBlock')
-        @searchBlock = document.getElementById('searchBlock')
-        @searchLine  = document.getElementById('searchLine')
-        @returnBlock = document.getElementById('returnBlock')
+        @main      = document.getElementById('main')
+        @input     = document.getElementById('input')
+        @line      = document.getElementById('line')
+        @output    = document.getElementById('output')
+        @cli       = document.getElementById('cli')
+        @bar       = document.getElementById('bar')
+        @logoImg   = document.getElementById('logoImg')
+        @watchImg  = document.getElementById('watchImg')
+        @logo      = document.getElementById('logo')
+        @watch     = document.getElementById('watch')
+        @cliTurn   = 'none'
 
 *Search Block onkeypress*
 
-        @searchLine.onkeypress = @search
-        @searchLine.focus()
+        @watch.onclick = @display
+        @line.onkeypress = @search
 
 ### **On Resize**
 
@@ -42,47 +48,62 @@ main.coffee.md
           height: window.innerHeight # || document.body.clientHeight
           difWidth: window.innerWidth - document.body.clientWidth
           difHeight: window.innerHeight - document.body.clientHeight
-        # log 'innerWidth x innerHeight:', window.innerWidth, 'x', window.innerHeight
-        log "[client] Width x Height: #{@size.width} (#{@size.difWidth}) x #{@size.height}  (#{@size.difHeight})"
         @grid()
 
 ### **Background Grid**
 
       grid: =>
-
-        # mainBlockStyle   += "height: #{@size.height - (@searchBlock.clientHeight - 0.62 * @searchBlock.clientHeight)}px;" # -
-        # returnBlockStyle  = "top: #{@searchBlock.clientHeight}px;"
-        # returnBlockStyle += "height: #{mainBlock.clientHeight - (3 * @searchBlock.clientHeight)}px;"
-        # returnBlockStyle  = "background-image: url('img/grid1024.png');"
-        mainBlockStyle    = "width: #{@size.width - @size.difWidth}px;"
-        mainBlockStyle   += "height: #{@size.height - @size.difWidth}px;"
-        @mainBlock.setAttribute('style', mainBlockStyle)
-        # returnBlockStyle  = "width: #{@mainBlock.offsetWidth // 1.015}px;"
-        # searchBlockStyle  = "height: #{@searchBlock.offsetWidth}px;"
-        # searchLineStyle   = "width: #{@searchBlock.offsetWidth}px;"
-        # @searchLine.setAttribute('style', searchLineStyle)
-        # returnBlockStyle += "height: #{@mainBlock.offsetHeight // 1.1 - @searchBlock.offsetHeight}px;"
-        # returnBlockStyle += "top: #{@searchBlock.offsetHeight}px;"
-        # @returnBlock.setAttribute('style', returnBlockStyle)
-        # searchBlockStyle += "height: #{@size.height * 0.38 // 0.99}px;"
-        # searchLineStyle  += "height: #{@searchBlock.offsetHeight // 1.015}px;"
-        # searchLineStyle  += "width: #{@mainBlock.offsetWidth * 0.985}px;"
-
-
-        # @searchBlock.setAttribute('style', searchBlockStyle)
+        # main
+        mainWidth  = @size.width - @size.difWidth
+        mainHeight = @size.height - @size.difWidth
+        mainStyle  = "width:#{mainWidth}px;height:#{mainHeight}px;"
+        @main.setAttribute('style', mainStyle)
+        # cli
+        mainDif = @main.offsetWidth - @main.clientWidth
+        cliWidth = @main.offsetWidth - mainDif
+        cliStyle = "display:#{@cliTurn};width:#{cliWidth}px;"
+        @cli.setAttribute('style', cliStyle)
+        # line
+        lineWidth = cliWidth - (2 * mainDif) - 13
+        lineStyle = "width: #{lineWidth}px;"
+        @line.setAttribute('style', lineStyle)
+        # bar
+        barHeight = mainHeight // 10
+        barStyle = "width:#{cliWidth}px;height:#{barHeight}px;"
+        @bar.setAttribute('style', barStyle)
+        # background-position
+        mainStyle += "background-position: center #{barHeight - 1}px;"
+        @main.setAttribute('style', mainStyle)
+        # watchImg
+        watchImgSize = barHeight - 7
+        watchImgStyle = "height:#{watchImgSize}px;width:#{watchImgSize}px;"
+        @watchImg.setAttribute('style', watchImgStyle)
+        # watch
+        watchSize = barHeight - 2
+        @watch.setAttribute('style', "height:#{watchSize}px;width:#{watchSize}px;")
 
 ### **Search Handler**
 
       search: (event) =>
-
         {charCode} = event
         if charCode is 13
-          {value} = @searchLine
-          @searchLine.value = ''
+          {value} = @line
+          @output.innerHTML += "<code class='req'>#{value}</code><br>"
+          @line.value = ''
           @remote.search value, (s) ->
-            returnBlock.textContent = s+'!'
+            @output.innerHTML += "<code class='rep'>#{s}</code><br>"
           return false
         return
+
+      display: =>
+        if @cli.style.display is 'none'
+          @cliTurn = 'block'
+        else
+          @cliTurn = 'none'
+        @grid()
+        outputHeight = @size.height - (@size.difWidth + @bar.offsetHeight + @input.offsetHeight)
+        @output.setAttribute('style', "height:#{outputHeight}px;")
+        @line.focus() if @cliTurn is 'block'
 
 ## Wait for DOM tree
 

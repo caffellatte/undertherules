@@ -29,7 +29,9 @@ env =
   """
 Procfile =
   """
-  hive: coffee #{__dirname}/src/core/hive.coffee.md
+  kue: coffee #{__dirname}/src/core/kue.coffee.md
+  telegram: coffee #{__dirname}/src/core/telegram.coffee.md
+  dnode: coffee #{__dirname}/src/core/dnode.coffee.md
   """
 
 task 'hint', 'JavaScript Source Code Analyzer via coffee-jshint', ->
