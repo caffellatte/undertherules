@@ -7,20 +7,139 @@
     helpers    = require('./helpers.coffee.md')
     Telegram   = require('telegram-node-bot')
 
+## Texts & other string content
+
+    helpText = '''
+      /start - Create profile
+      /panel - Goto dashboad
+      /about - Contacts & etc
+      /help - List of commands
+      '''
+
+    startText = '''
+      Flexible environment for social network analysis (SNA).
+      Software provides full-cycle of retrieving and subsequent
+      processing data from the social networks.
+      Usage: /help. More: /about. Dashboard: /panel.'''
+
+    aboutText = '''
+      Undertherules, MIT license
+      Copyright (c) 2016 Mikhail G. Lutsenko
+      Mail: m.g.lutsenko@gmail.com
+      Telegram: @sociometrics'''
+
+## Getter Prototype
+
+    Function::property = (prop, desc) ->
+      Object.defineProperty @prototype, prop, desc
+
 ## Extract functions & constans from modules
 
-    {log}                              = console
-    {TELEGRAM_TOKEN}                   = process.env
-    {TextCommand}                      = Telegram
-    {OtherwiseController}              = helpers
-    {panelHandler, helpHandler}        = helpers
-    {startHandler, aboutHandler}       = helpers
-    {StartController, HelpController}  = helpers
-    {PanelController, AboutController} = helpers
+    {log}                                          = console
+    {TELEGRAM_TOKEN, LEVEL_DNODE_PORT, DNODE_PORT} = process.env
+    {TelegramBaseController, TextCommand}          = Telegram
+    {DnodeCrypto}  = helpers
 
-## Create a queue instance for creating jobs, providing us access to redis etc
+## Telegram HelpController
+
+    class TelegramController extends TelegramBaseController
+      constructor: (queue) ->
+        @queue = queue
+      startHandler: ($) ->
+        job = @queue.create('start',
+          title: "Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: startText
+          chat: $.message.chat).save()
+      panelHandler: ($) ->
+        job = @queue.create('panel',
+          title: "Telegram PanelController. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: 'Link allows you to access the dashboad.\nIt will expire after every 24 hours.').save()
+      aboutHandler: ($) ->
+        job = @queue.create('about',
+          title: "Telegram AboutController. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: aboutText).save()
+      helpHandler: ($) ->
+        job = @queue.create('help',
+          title: "Telegram HelpController. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: helpText).save()
+      @property 'routes',
+        get: ->
+          'helpCommand':  'helpHandler'
+          'aboutCommand': 'aboutHandler'
+          'startCommand': 'startHandler'
+          'panelCommand': 'panelHandler'
+
+## Class OtherwiseController
+
+    class OtherwiseController extends TelegramBaseController
+      constructor: (queue) ->
+        @queue = queue
+      handle: ($) ->
+        $.sendMessage 'Unknown command. See list of commands: /help.'
+
+## Start Handler
+
+    startHandler = (data, queue, done) ->
+      {chatId, text, chat} = data
+      if !chatId? or !text? or !chat?
+        return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
+      d = dnode.connect(LEVEL_DNODE_PORT)
+      d.on 'remote', (remote) ->
+        remote.start chat, (s) ->
+          d.end()
+          job = queue.create('sendMessage',
+            title: "Check for existing or create new profile. Telegram UID: #{chatId}."
+            chatId: chatId
+            text: "#{text}\nYour profile UID: #{chatId}.").save()
+          done()
+
+## Panel Handler
+
+    panelHandler = (data, queue, done) ->
+      {chatId, text} = data
+      if !chatId? or !text?
+        errorText = "Error! at panelHandler. Faild to send text."
+        log errorText
+        return done(new Error(errorText))
+      d = dnode.connect(LEVEL_DNODE_PORT)
+      d.on 'remote', (remote) ->
+        remote.panel chatId, (s) ->
+          {subject, object} = s
+          {user, pass} =  DnodeCrypto subject, object
+          d.end()
+          job = queue.create('sendMessage',
+            title: "Generate access link. Telegram UID: #{chatId}."
+            chatId: chatId
+            text: text + "\n http://0.0.0.0:#{DNODE_PORT}/?_s=#{user}:#{pass}.").save()
+          done()
+
+## Support Handler
+
+    supportHandler = (data, queue, done) ->
+      {chatId, text} = data
+      if !chatId? or !text?
+        return done(new Error("Support Handler Error.\nUID: #{chatId}\Text: #{text}"))
+      job = queue.create('sendMessage',
+        title: "Send support text. Telegram UID: #{chatId}."
+        chatId: chatId
+        text: text).save()
+      done()
+
+## Create a queue instance for creating jobs
 
     queue = kue.createQueue()
+    queue.process 'start', (job, done) ->
+      startHandler job.data, queue, done
+    queue.process 'panel', (job, done) ->
+      panelHandler job.data, queue, done
+    queue.process 'about', (job, done) ->
+      supportHandler job.data, queue, done
+    queue.process 'help', (job, done) ->
+      supportHandler  job.data, queue, done
 
 ## Create Telegram instance interface
 
@@ -32,25 +151,21 @@
 
 ### Queue process handlers
 
-      queue.process 'start',       (job, done) -> startHandler job.data, done
-      queue.process 'about',       (job, done) -> aboutHandler job.data, done
-      queue.process 'panel',       (job, done) -> panelHandler job.data, done
-      queue.process 'help',        (job, done) -> helpHandler  job.data, done
       queue.process 'sendMessage', (job, done) ->
-        {chat, text} = job.data
-        if !chat? or !text?
-          log "Error! [sendMessage] Faild to send messsage: #{text} to #{chat}."
+        {chatId, text} = job.data
+        if !chatId? or !text?
+          log "Error! [sendMessage] Faild to send messsage: #{text} to #{chatId}."
           return Error("Error! [sendMessage] Faild to send messsage.")
-        tg.api.sendMessage chat, text
+        tg.api.sendMessage chatId, text
         done()
 
 ## Telegram Bot Router
 
     tg.router
-      .when new TextCommand('start', 'startCommand'), new StartController()
-      .when new TextCommand('about', 'aboutCommand'), new AboutController()
-      .when new TextCommand('panel', 'panelCommand'), new PanelController()
-      .when new TextCommand('help',  'helpCommand'),  new HelpController()
-      .otherwise new OtherwiseController()
+      .when new TextCommand('start', 'startCommand'), new TelegramController(queue)
+      .when new TextCommand('panel', 'panelCommand'), new TelegramController(queue)
+      .when new TextCommand('about', 'aboutCommand'), new TelegramController(queue)
+      .when new TextCommand('help',  'helpCommand'),  new TelegramController(queue)
+      .otherwise new OtherwiseController(queue)
 
 ## More: [undertherules](https://github.com/caffellatte/undertherules)

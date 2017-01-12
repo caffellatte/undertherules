@@ -4,14 +4,22 @@ Data agregetion via level-graph storage
 
 ## Import NPM modules
 
+    fs         = require 'fs-extra'
     dnode      = require 'dnode'
     level      = require 'levelup'
     levelgraph = require 'levelgraph'
 
 ## Extract functions & constans from modules
 
-    {LEVEL_PATH, LEVEL_DNODE_PORT} = process.env
+    LEVEL_PORT   = process.env.npm_package_config_level_port
+    LEVEL_PATH   = process.env.npm_package_config_level_path
     {log}        = console
+    {mkdirsSync} = fs
+
+## Create Data folder
+
+    mkdirsSync LEVEL_PATH
+    log "make dir #{LEVEL_PATH}"
 
 ## Initializing a database
 
@@ -20,8 +28,7 @@ Data agregetion via level-graph storage
 ## Inserting a triple in the database
 
     API =
-      start:  (s, cb) ->
-        {chat} = s
+      start:  (chat, cb) ->
         {id, type, username, first_name, last_name} = chat
         triple =
           subject: id
@@ -57,4 +64,4 @@ Data agregetion via level-graph storage
               cb('err')
 
     server = dnode(API)
-    server.listen(LEVEL_DNODE_PORT)
+    server.listen(LEVEL_PORT)

@@ -25,6 +25,17 @@ Coffee-script both on server & client sides. Current state: `development`.
 
 ## Installation
 
+### Set environment via npm config
+
+    npm config set undertherules:telegram_token "123:qwerty"
+
+### Procfile
+
+    kue: coffee ./src/core/kue.coffee.md
+    level: coffee ./src/core/level.coffee.md
+    telegram: coffee ./src/core/telegram.coffee.md
+    panel: coffee ./src/core/panel.coffee.md
+
 ### Create new user (optional)
 
     useradd --home-dir /home/bot --create-home --shell /bin/bash bot
