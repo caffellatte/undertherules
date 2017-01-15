@@ -25,9 +25,14 @@ Coffee-script both on server & client sides. Current state: `development`.
 
 ## Installation
 
-### Set environment via npm config
+### .env
 
-    npm config set undertherules:telegram_token "123:qwerty"
+    KUE_PORT="8816"
+    LEVEL_PORT="9004"
+    PANEL_PORT="8294"
+    LEVEL_DIR=".db"
+    STATIC_DIR="static"
+    TELEGRAM_TOKEN="****"
 
 ### Procfile
 

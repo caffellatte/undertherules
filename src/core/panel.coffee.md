@@ -1,86 +1,133 @@
 # dnode.coffee.md
 
+Dnode uses the streaming interface provided by shoe, which is just
+a thin wrapper on top of sockjs that provides websockets with fallbacks.
+
 ## Import NPM modules
 
-    http       = require('http')
-    shoe       = require('shoe')
-    dnode      = require('dnode')
-    coffeeify  = require('coffeeify')
-    browserify = require('browserify')
-    helpers    = require('./helpers.coffee.md')
+    fs         = require 'fs-extra'
+    kue        = require 'kue'
+    pug        = require 'pug'
+    http       = require 'http'
+    shoe       = require 'shoe'
+    dnode      = require 'dnode'
+    stylus     = require 'stylus'
+    coffeeify  = require 'coffeeify'
+    browserify = require 'browserify'
 
 ## Extract functions & constans from modules
 
-    {DnodeCrypto} = helpers
-    {DNODE_PORT, STATIC_PATH, LEVEL_DNODE_PORT} = process.env
-    {log}                     = console
+    {log} = console
+    {writeFileSync, readFileSync, mkdirsSync, copySync} = fs
+
+## Environment virables
+
+    {LEVEL_PORT} = process.env
+    {PANEL_PORT} = process.env
+    {STATIC_DIR} = process.env
+    {HTDOCS_DIR} = process.env
+
+## Files & folders
+
+    staticImg         = "#{STATIC_DIR}/img"
+    staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
+    indexHtml         = "#{STATIC_DIR}/index.html"
+    styleCss          = "#{STATIC_DIR}/style.css"
+    bundleJs          = "#{STATIC_DIR}/bundle.js"
+    htdocsImg         = "#{HTDOCS_DIR}/img"
+    htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico"
+    templatePug       = "#{HTDOCS_DIR}/template.pug"
+    styleStyl         = "#{HTDOCS_DIR}/style.styl"
+    dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
+
+## Dnode Crypto
+
+    DnodeCrypto = (subject, object) ->
+      nub = +new Date() // (1000 * 60 * 60 * 24)
+      _a = subject % nub + nub * subject
+      _b = object % subject + object % nub + subject % nub + (object - subject) // nub
+      _login = subject * nub
+      _passwd = crypto.createHash('md5').update("#{_b}#{subject}#{_a}#{object}").digest("hex")
+      return {user: _login, pass: _passwd}
 
 ## cake htdocStatic
 
-    HtdocsStatic = (_static, imgHtdocs, imgStatic, favicon, _favicon, done) ->
-      mkdirsSync _static
-      log "make folder #{_static}"
-      copySync imgHtdocs, imgStatic
-      log "copy folder #{imgHtdocs} -> #{imgStatic}"
-      copySync favicon, _favicon
-      log "copy file #{favicon} -> #{_favicon}"
+    HtdocsStatic = (data, done) ->
+      {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = data
+      copySync htdocsImg, staticImg
+      log "copy folder #{htdocsImg} -> #{staticImg}"
+      copySync htdocsFaviconIco, staticFaviconIco
+      log "copy file #{htdocsFaviconIco} -> #{staticFaviconIco}"
       done()
 
 # #cake pug
 
-    Pug = (templatePug, indexHtml, done) ->
+    HtdocsPug = (data, done) ->
+      {templatePug, indexHtml} = data
       writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
       log "render file #{templatePug} -> #{indexHtml}"
       done()
 
 ## cake stylus
 
-    HtdocsStylus = (styleStyl, styleCss, done) ->
+    HtdocsStylus = (data, done) ->
+      {styleStyl, styleCss} = data
       handler = (err, css) ->
         if err then throw err
         writeFileSync styleCss, css
         log "render file #{styleStyl} -> #{styleCss}"
-      content = readFileSync(styleStyl, utf8)
+      content = readFileSync(styleStyl, {encoding:'utf8'})
       stylus.render(content, handler)
       done()
 
 ## cake browserify
 
-    HtdocsBrowserify = (mainCoffeeMd, bundleJs, done) ->
+    HtdocsBrowserify = (data, done) ->
+      {dashCoffeeMd, bundleJs} = data
       bundle = browserify
         extensions: ['.coffee.md']
       bundle.transform coffeeify,
         bare: false
         header: false
-      bundle.add mainCoffeeMd
+      bundle.add dashCoffeeMd
       bundle.bundle (error, js) ->
         throw error if error?
         writeFileSync bundleJs, js
-        log "render file #{mainCoffeeMd} -> #{bundleJs}"
+        log "render file #{dashCoffeeMd} -> #{bundleJs}"
         done()
 
+## Create **static** folder
 
-    # task 'htdocs:static', 'Create (mkdir) `static` folder.', ->
-    #   HtdocsStatic(_static, imgHtdocs, imgStatic, favicon, _favicon)
-    #
-    # task 'htdocs:pug', 'Render (transform) pug template to html', ->
-    #   Pug(templatePug, indexHtml)
-    #
-    # task 'htdocs:stylus', 'Render (transform) stylus template to css', ->
-    #   HtdocsStylus(styleStyl, styleCss)
-    #
-    # task 'htdocs:browserify', 'Render (transform) coffee template to js', ->
-    #   HtdocsBrowserify(mainCoffeeMd, bundleJs)
-    #
-    # task 'htdocs', 'Build client-side app & save into `static` folder.', ->
-    #   invoke 'htdocs:static'
-    #   invoke 'htdocs:pug'
-    #   invoke 'htdocs:stylus'
-    #   invoke 'htdocs:browserify'
+    mkdirsSync STATIC_DIR
+    log "make folder #{STATIC_DIR}"
+
+## Create a queue instance for creating jobs, providing us access to redis etc
+
+    queue = kue.createQueue()
+
+### Queue **HtdocsStatic** handler
+
+    queue.process 'HtdocsStatic', (job, done) ->
+      HtdocsStatic job.data, done
+
+### Queue **HtdocsPug** handler
+
+    queue.process 'HtdocsPug', (job, done) ->
+      HtdocsPug job.data, done
+
+### Queue **HtdocsStylus** handler
+
+    queue.process 'HtdocsStylus', (job, done) ->
+      HtdocsStylus job.data, done
+
+### Queue **HtdocsBrowserify** handler
+
+    queue.process 'HtdocsBrowserify', (job, done) ->
+      HtdocsBrowserify job.data, done
 
 ## A simple static file server middleware. Using it with a raw http server
 
-    ecstatic = require('ecstatic')(STATIC_PATH)
+    ecstatic = require('ecstatic')(STATIC_DIR)
 
 ## Create HTTP static server
 
@@ -89,16 +136,24 @@
 ## Define API object providing integration vith dnode
 
     API =
+
+### **dateTime**
+
       dateTime: (s, cb) ->
-        # currentDateTime = DatePrettyString(s)
         cb(currentDateTime)
+
+### **search**
+
       search: (s, cb) ->
         log(s)
         cb(s)
+
+### **auth**
+
       auth: (_user, _pass, cb) ->
         if typeof cb != 'function'
           return
-        ld = dnode.connect(LEVEL_DNODE_PORT)
+        ld = dnode.connect(LEVEL_PORT)
         ld.on 'remote', (remote) ->
           nub = +new Date() // (1000 * 60 * 60 * 24)
           id = _user / nub
@@ -113,13 +168,47 @@
               cb 'ACCESS DENIED'
             return
 
+
+
 ## Start Dnode
 
-    server.listen DNODE_PORT, ->
+    server.listen PANEL_PORT, ->
       log("""
-      RPC module (dnode) successful started. Listen port: #{DNODE_PORT}.
-      Web: http://0.0.0.0:#{DNODE_PORT}
+      RPC module (dnode) successful started. Listen port: #{PANEL_PORT}.
+      Web: http://0.0.0.0:#{PANEL_PORT}
       """)
+
+## Generate stitc files
+
+### Create **HtdocsStatic** Job
+
+      HtdocsStaticJob = queue.create('HtdocsStatic',
+        title: "Copy images from HTDOCS_DIR to STATIC_DIR",
+        htdocsFaviconIco:htdocsFaviconIco,
+        staticFaviconIco:staticFaviconIco,
+        htdocsImg:htdocsImg
+        staticImg:staticImg).save()
+
+### Create **HtdocsPug** Job
+
+      HtdocsPugJob = queue.create('HtdocsPug',
+        title: "Render (transform) pug template to html"
+        templatePug:templatePug,
+        indexHtml:indexHtml).save()
+
+### Create **HtdocsStylus** Job
+
+      HtdocsStylusJob = queue.create('HtdocsStylus',
+        title: "Render (transform) stylus template to css"
+        styleStyl:styleStyl,
+        styleCss:styleCss).save()
+
+### Create **HtdocsBrowserify** Job
+
+      HtdocsBrowserifyJob = queue.create('HtdocsBrowserify',
+        title: "Render (transform) coffee template to js"
+        dashCoffeeMd:dashCoffeeMd,
+        bundleJs:bundleJs).save()
 
 ## Use dnode via shoe & Install endpoint
 

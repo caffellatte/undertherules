@@ -24,20 +24,8 @@
   "devDependencies": {
     "coffee-script": "^1.12.2"
   },
-  "scripts" : {
-    "start" : "coffee ./src/core/kue.coffee.md",
-    "kue": "coffee ./src/core/kue.coffee.md",
-    "telegram": "coffee ./src/core/telegram.coffee.md",
-    "panel": "coffee ./src/core/panel.coffee.md",
-    "level": "coffee ./src/core/level.coffee.md"
-  },
-  "config": {
-    "level_port": "9004",
-    "level_dir": ".db/",
-    "panel_port": "8294",
-    "panel_dir": "static/",
-    "kue_port": "8816"
-  },
+  "scripts" : {},
+  "config": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/caffellatte/undertherules.git"

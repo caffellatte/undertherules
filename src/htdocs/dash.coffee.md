@@ -18,6 +18,7 @@
         Dnode.on 'remote', (remote) =>
           @remote = remote
           {query} = parse(window.location.href)
+          log 'window.location.href: ', query
           credentials = query.replace('_s=', '').split(':')
           @remote.auth credentials[0], credentials[1], (err, session) ->
             if err
@@ -127,3 +128,21 @@
       Dnode.pipe(stream).pipe(Dnode)
       UI = new Interface(Dnode)
       UI.onresize()
+
+
+      # ## Timestamp to pretty date transform
+      # Simple coffeescript method to  convert a unix timestamp to  a date.
+      # Function return example: '2016.03.11 12:26:51'
+      # http://stackoverflow.com/questions/847185/
+      #
+      #     DatePrettyString = (timestamp, sep = ' ') ->
+      #       zeroPad = (x) ->
+      #         return if x < 10 then '0' + x else '' + x
+      #       date = new Date(timestamp)
+      #       d = zeroPad(date.getDate())
+      #       m = +zeroPad(date.getMonth()) + 1
+      #       y = date.getFullYear()
+      #       h = zeroPad(date.getHours())
+      #       n = zeroPad(date.getMinutes())
+      #       s = zeroPad(date.getSeconds())
+      #       return "#{y}.#{m}.#{d}#{sep}#{h}:#{n}:#{s}"

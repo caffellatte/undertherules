@@ -2,10 +2,20 @@
 
 ## Import NPM modules
 
-    kue        = require('kue')
-    dnode      = require('dnode')
-    helpers    = require('./helpers.coffee.md')
-    Telegram   = require('telegram-node-bot')
+    kue        = require 'kue'
+    dnode      = require 'dnode'
+    crypto     = require 'crypto'
+    Telegram   = require 'telegram-node-bot'
+
+## Extract functions & constans from modules
+
+    {log}                                 = console
+    {TelegramBaseController, TextCommand} = Telegram
+
+## Environment virables
+
+    {LEVEL_PORT}     = process.env
+    {TELEGRAM_TOKEN} = process.env
 
 ## Texts & other string content
 
@@ -13,8 +23,7 @@
       /start - Create profile
       /panel - Goto dashboad
       /about - Contacts & etc
-      /help - List of commands
-      '''
+      /help - List of commands'''
 
     startText = '''
       Flexible environment for social network analysis (SNA).
@@ -33,12 +42,15 @@
     Function::property = (prop, desc) ->
       Object.defineProperty @prototype, prop, desc
 
-## Extract functions & constans from modules
+## DnodeCrypto
 
-    {log}                                          = console
-    {TELEGRAM_TOKEN, LEVEL_DNODE_PORT, DNODE_PORT} = process.env
-    {TelegramBaseController, TextCommand}          = Telegram
-    {DnodeCrypto}  = helpers
+    DnodeCrypto = (subject, object) ->
+      nub = +new Date() // (1000 * 60 * 60 * 24)
+      _a = subject % nub + nub * subject
+      _b = object % subject + object % nub + subject % nub + (object - subject) // nub
+      _login = subject * nub
+      _passwd = crypto.createHash('md5').update("#{_b}#{subject}#{_a}#{object}").digest("hex")
+      return {user: _login, pass: _passwd}
 
 ## Telegram HelpController
 
@@ -87,7 +99,7 @@
       {chatId, text, chat} = data
       if !chatId? or !text? or !chat?
         return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
-      d = dnode.connect(LEVEL_DNODE_PORT)
+      d = dnode.connect(LEVEL_PORT)
       d.on 'remote', (remote) ->
         remote.start chat, (s) ->
           d.end()
@@ -105,7 +117,7 @@
         errorText = "Error! at panelHandler. Faild to send text."
         log errorText
         return done(new Error(errorText))
-      d = dnode.connect(LEVEL_DNODE_PORT)
+      d = dnode.connect(LEVEL_PORT)
       d.on 'remote', (remote) ->
         remote.panel chatId, (s) ->
           {subject, object} = s
@@ -114,7 +126,7 @@
           job = queue.create('sendMessage',
             title: "Generate access link. Telegram UID: #{chatId}."
             chatId: chatId
-            text: text + "\n http://0.0.0.0:#{DNODE_PORT}/?_s=#{user}:#{pass}.").save()
+            text: text + "\n http://0.0.0.0:#{LEVEL_PORT}/?_s=#{user}:#{pass}.").save()
           done()
 
 ## Support Handler
@@ -132,12 +144,24 @@
 ## Create a queue instance for creating jobs
 
     queue = kue.createQueue()
+
+###  Queue **start** process
+
     queue.process 'start', (job, done) ->
       startHandler job.data, queue, done
+
+###  Queue **panel** process
+
     queue.process 'panel', (job, done) ->
       panelHandler job.data, queue, done
+
+###  Queue **about** process
+
     queue.process 'about', (job, done) ->
       supportHandler job.data, queue, done
+
+###  Queue **help** process
+
     queue.process 'help', (job, done) ->
       supportHandler  job.data, queue, done
 

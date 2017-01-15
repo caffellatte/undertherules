@@ -11,19 +11,22 @@ Data agregetion via level-graph storage
 
 ## Extract functions & constans from modules
 
-    LEVEL_PORT   = process.env.npm_package_config_level_port
-    LEVEL_PATH   = process.env.npm_package_config_level_path
     {log}        = console
     {mkdirsSync} = fs
 
+## Environment virables
+
+    {LEVEL_DIR}  = process.env
+    {LEVEL_PORT} = process.env
+
 ## Create Data folder
 
-    mkdirsSync LEVEL_PATH
-    log "make dir #{LEVEL_PATH}"
+    mkdirsSync LEVEL_DIR
+    log "make dir #{LEVEL_DIR}"
 
 ## Initializing a database
 
-    users = levelgraph(level(LEVEL_PATH + 'users'))
+    users = levelgraph(level(LEVEL_DIR + '/users'))
 
 ## Inserting a triple in the database
 
