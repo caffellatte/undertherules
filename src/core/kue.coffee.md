@@ -89,9 +89,9 @@ as starting the web app bundled with Kue.
 
 ### Create **coffeelint** Job
 
-        coffeelintJob = queue.create('coffeelint',
-          title: "JavaScript Source Code Analyzer via coffee-jshint."
-          files: coffeeFiles).save()
+        # coffeelintJob = queue.create('coffeelint',
+        #   title: "JavaScript Source Code Analyzer via coffee-jshint."
+        #   files: coffeeFiles).save()
 
 ### Create **clean** Job
 

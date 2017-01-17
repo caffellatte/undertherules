@@ -14,6 +14,7 @@
 
 ## Environment virables
 
+    {PANEL_PORT}     = process.env
     {LEVEL_PORT}     = process.env
     {TELEGRAM_TOKEN} = process.env
 
@@ -126,7 +127,7 @@
           job = queue.create('sendMessage',
             title: "Generate access link. Telegram UID: #{chatId}."
             chatId: chatId
-            text: text + "\n http://0.0.0.0:#{LEVEL_PORT}/?_s=#{user}:#{pass}.").save()
+            text: text + "\n http://0.0.0.0:#{PANEL_PORT}/?_s=#{user}:#{pass}.").save()
           done()
 
 ## Support Handler

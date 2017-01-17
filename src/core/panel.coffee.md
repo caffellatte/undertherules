@@ -11,6 +11,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
     http       = require 'http'
     shoe       = require 'shoe'
     dnode      = require 'dnode'
+    crypto     = require 'crypto'
     stylus     = require 'stylus'
     coffeeify  = require 'coffeeify'
     browserify = require 'browserify'
@@ -50,17 +51,19 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       _passwd = crypto.createHash('md5').update("#{_b}#{subject}#{_a}#{object}").digest("hex")
       return {user: _login, pass: _passwd}
 
-## cake htdocStatic
+## HtdocsStatic
 
     HtdocsStatic = (data, done) ->
-      {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = data
+      {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = data
+      mkdirsSync STATIC_DIR
+      log "make folder #{STATIC_DIR}"
       copySync htdocsImg, staticImg
       log "copy folder #{htdocsImg} -> #{staticImg}"
       copySync htdocsFaviconIco, staticFaviconIco
       log "copy file #{htdocsFaviconIco} -> #{staticFaviconIco}"
       done()
 
-# #cake pug
+##  HtdocsPug
 
     HtdocsPug = (data, done) ->
       {templatePug, indexHtml} = data
@@ -68,7 +71,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       log "render file #{templatePug} -> #{indexHtml}"
       done()
 
-## cake stylus
+## HtdocsStylus
 
     HtdocsStylus = (data, done) ->
       {styleStyl, styleCss} = data
@@ -80,7 +83,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       stylus.render(content, handler)
       done()
 
-## cake browserify
+## HtdocsBrowserify
 
     HtdocsBrowserify = (data, done) ->
       {dashCoffeeMd, bundleJs} = data
@@ -95,11 +98,6 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
         writeFileSync bundleJs, js
         log "render file #{dashCoffeeMd} -> #{bundleJs}"
         done()
-
-## Create **static** folder
-
-    mkdirsSync STATIC_DIR
-    log "make folder #{STATIC_DIR}"
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
@@ -136,20 +134,11 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 ## Define API object providing integration vith dnode
 
     API =
-
-### **dateTime**
-
       dateTime: (s, cb) ->
         cb(currentDateTime)
-
-### **search**
-
       search: (s, cb) ->
         log(s)
         cb(s)
-
-### **auth**
-
       auth: (_user, _pass, cb) ->
         if typeof cb != 'function'
           return
@@ -168,8 +157,6 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
               cb 'ACCESS DENIED'
             return
 
-
-
 ## Start Dnode
 
     server.listen PANEL_PORT, ->
@@ -184,31 +171,32 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
       HtdocsStaticJob = queue.create('HtdocsStatic',
         title: "Copy images from HTDOCS_DIR to STATIC_DIR",
+        STATIC_DIR:STATIC_DIR,
         htdocsFaviconIco:htdocsFaviconIco,
         staticFaviconIco:staticFaviconIco,
         htdocsImg:htdocsImg
-        staticImg:staticImg).save()
+        staticImg:staticImg).delay(100).save()
 
 ### Create **HtdocsPug** Job
 
       HtdocsPugJob = queue.create('HtdocsPug',
-        title: "Render (transform) pug template to html"
+        title: "Render (transform) pug template to html",
         templatePug:templatePug,
-        indexHtml:indexHtml).save()
+        indexHtml:indexHtml).delay(1500).save()
 
 ### Create **HtdocsStylus** Job
 
       HtdocsStylusJob = queue.create('HtdocsStylus',
-        title: "Render (transform) stylus template to css"
+        title: "Render (transform) stylus template to css",
         styleStyl:styleStyl,
-        styleCss:styleCss).save()
+        styleCss:styleCss).delay(1500).save()
 
 ### Create **HtdocsBrowserify** Job
 
       HtdocsBrowserifyJob = queue.create('HtdocsBrowserify',
         title: "Render (transform) coffee template to js"
         dashCoffeeMd:dashCoffeeMd,
-        bundleJs:bundleJs).save()
+        bundleJs:bundleJs).delay(1500).save()
 
 ## Use dnode via shoe & Install endpoint
 

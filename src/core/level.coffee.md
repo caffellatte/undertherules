@@ -5,6 +5,7 @@ Data agregetion via level-graph storage
 ## Import NPM modules
 
     fs         = require 'fs-extra'
+    kue        = require 'kue'
     dnode      = require 'dnode'
     level      = require 'levelup'
     levelgraph = require 'levelgraph'
@@ -19,14 +20,28 @@ Data agregetion via level-graph storage
     {LEVEL_DIR}  = process.env
     {LEVEL_PORT} = process.env
 
-## Create Data folder
+## Create Level Dir folder
 
-    mkdirsSync LEVEL_DIR
-    log "make dir #{LEVEL_DIR}"
+    levelDir = (data, queue, done) =>
+      {LEVEL_DIR} = data
+      mkdirsSync LEVEL_DIR
+      log "make dir #{LEVEL_DIR}"
+      done()
 
-## Initializing a database
+## Create a queue instance for creating jobs
 
-    users = levelgraph(level(LEVEL_DIR + '/users'))
+    queue = kue.createQueue()
+
+###  Queue **levelDir** process
+
+    queue.process 'levelDir', (job, done) ->
+      levelDir job.data, queue, done
+
+### Create **levelDir** Job
+
+    levelDirJob = queue.create('levelDir',
+      title: "Create dir for LevelDB.",
+      LEVEL_DIR:LEVEL_DIR).save()
 
 ## Inserting a triple in the database
 
@@ -65,6 +80,12 @@ Data agregetion via level-graph storage
               cb(list[0])
             else
               cb('err')
+
+## Initializing usersDB
+
+    users = levelgraph(level(LEVEL_DIR + '/users'))
+
+## Start Dnode & listen Level Port
 
     server = dnode(API)
     server.listen(LEVEL_PORT)
