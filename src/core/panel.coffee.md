@@ -11,7 +11,6 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
     http       = require 'http'
     shoe       = require 'shoe'
     dnode      = require 'dnode'
-    crypto     = require 'crypto'
     stylus     = require 'stylus'
     coffeeify  = require 'coffeeify'
     browserify = require 'browserify'
@@ -23,8 +22,8 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
 ## Environment virables
 
-    {LEVEL_PORT} = process.env
     {PANEL_PORT} = process.env
+    {PANEL_HOST} = process.env
     {STATIC_DIR} = process.env
     {HTDOCS_DIR} = process.env
 
@@ -40,16 +39,6 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
     templatePug       = "#{HTDOCS_DIR}/template.pug"
     styleStyl         = "#{HTDOCS_DIR}/style.styl"
     dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
-
-## Dnode Crypto
-
-    DnodeCrypto = (subject, object) ->
-      nub = +new Date() // (1000 * 60 * 60 * 24)
-      _a = subject % nub + nub * subject
-      _b = object % subject + object % nub + subject % nub + (object - subject) // nub
-      _login = subject * nub
-      _passwd = crypto.createHash('md5').update("#{_b}#{subject}#{_a}#{object}").digest("hex")
-      return {user: _login, pass: _passwd}
 
 ## HtdocsStatic
 
@@ -139,30 +128,31 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       search: (s, cb) ->
         log(s)
         cb(s)
-      auth: (_user, _pass, cb) ->
+      auth: (query, cb) ->
         if typeof cb != 'function'
           return
-        ld = dnode.connect(LEVEL_PORT)
-        ld.on 'remote', (remote) ->
-          nub = +new Date() // (1000 * 60 * 60 * 24)
-          id = _user / nub
-          remote.panel id, (s) ->
-            {subject, object} = s
-            ld.end()
-            {user, pass} = DnodeCrypto subject, object
-            if +_user is +user and _pass is pass
-              console.log 'signed in: ' + subject
-              cb null, subject
+        credentials = query.replace('_s=', '').split(':')
+        if credentials[0]? and credentials[1]?
+          AuthUserJob = queue.create('AuthenticateUser',
+            title: "Authenticate user. Telegram UID: #{credentials[0]}.",
+            chatId: credentials[0]).save()
+          AuthUserJob.on 'complete', (result) ->
+            {user, pass, first_name, last_name} = result
+            if +credentials[0] is +user and credentials[1] is pass
+              console.log "signed as: #{first_name} #{last_name}"
+              cb null, result
             else
               cb 'ACCESS DENIED'
-            return
+        else
+           cb 'ACCESS DENIED'
+
 
 ## Start Dnode
 
     server.listen PANEL_PORT, ->
       log("""
       RPC module (dnode) successful started. Listen port: #{PANEL_PORT}.
-      Web: http://0.0.0.0:#{PANEL_PORT}
+      Web: http://#{PANEL_HOST}:#{PANEL_PORT}
       """)
 
 ## Generate stitc files

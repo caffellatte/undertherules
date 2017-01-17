@@ -18,9 +18,7 @@
         Dnode.on 'remote', (remote) =>
           @remote = remote
           {query} = parse(window.location.href)
-          log 'window.location.href: ', query
-          credentials = query.replace('_s=', '').split(':')
-          @remote.auth credentials[0], credentials[1], (err, session) ->
+          @remote.auth query, (err, session) ->
             if err
               console.error err
               return Dnode.end()
