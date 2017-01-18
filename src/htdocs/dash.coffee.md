@@ -18,12 +18,21 @@
         Dnode.on 'remote', (remote) =>
           @remote = remote
           {query} = parse(window.location.href)
-          @remote.auth query, (err, session) ->
-            if err
-              console.error err
-              return Dnode.end()
-            else
-              log session
+          if query
+            credentials = query.replace('_s=', '').split(':')
+            if credentials.length is 2
+              @createCookie 'user', credentials[0], 1
+              @createCookie 'pass', credentials[1], 1
+              # window.location.href = ''
+          else
+            user = @readCookie 'user'
+            pass = @readCookie 'pass'
+            @remote.auth user, pass, (err, session) ->
+              if err
+                console.error err
+                return Dnode.end()
+              else
+                log session
 
 *Add Event Listener*
 
@@ -114,6 +123,38 @@
         outputHeight = @size.height - (@size.difWidth + @bar.offsetHeight + @input.offsetHeight)
         @output.setAttribute('style', "height:#{outputHeight}px;")
         @line.focus() if @cliTurn is 'block'
+
+### **createCookie**
+
+      createCookie: (name, value, days) ->
+        expires = ''
+        if days
+          date = new Date
+          date.setTime date.getTime() + days * 24 * 60 * 60 * 1000
+          expires = '; expires=' + date.toUTCString()
+        document.cookie = name + '=' + value + expires + '; path=/'
+        return
+
+### **readCookie**
+
+      readCookie: (name) ->
+        nameEQ = name + '='
+        ca = document.cookie.split(';')
+        i = 0
+        while i < ca.length
+          c = ca[i]
+          while c.charAt(0) == ' '
+            c = c.substring(1, c.length)
+          if c.indexOf(nameEQ) == 0
+            return c.substring(nameEQ.length, c.length)
+          i++
+        null
+
+### **eraseCookie**
+
+      eraseCookie: (name) ->
+        createCookie name, '', -1
+        return
 
 ## Wait for DOM tree
 

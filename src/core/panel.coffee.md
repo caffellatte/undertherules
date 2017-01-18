@@ -128,17 +128,16 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       search: (s, cb) ->
         log(s)
         cb(s)
-      auth: (query, cb) ->
+      auth: (_user, _pass, cb) ->
         if typeof cb != 'function'
           return
-        credentials = query.replace('_s=', '').split(':')
-        if credentials[0]? and credentials[1]?
+        if _user? and _pass?
           AuthUserJob = queue.create('AuthenticateUser',
-            title: "Authenticate user. Telegram UID: #{credentials[0]}.",
-            chatId: credentials[0]).save()
+            title: "Authenticate user. Telegram UID: #{user}.",
+            chatId: user).save()
           AuthUserJob.on 'complete', (result) ->
             {user, pass, first_name, last_name} = result
-            if +credentials[0] is +user and credentials[1] is pass
+            if +_user is +user and _pass is pass
               console.log "signed as: #{first_name} #{last_name}"
               cb null, result
             else
@@ -155,9 +154,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       Web: http://#{PANEL_HOST}:#{PANEL_PORT}
       """)
 
-## Generate stitc files
-
-### Create **HtdocsStatic** Job
+## Create *HtdocsStatic* Job
 
       HtdocsStaticJob = queue.create('HtdocsStatic',
         title: "Copy images from HTDOCS_DIR to STATIC_DIR",
@@ -165,28 +162,30 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
         htdocsFaviconIco:htdocsFaviconIco,
         staticFaviconIco:staticFaviconIco,
         htdocsImg:htdocsImg
-        staticImg:staticImg).delay(100).save()
+        staticImg:staticImg).save()
+
+      HtdocsStaticJob.on 'complete', () ->
 
 ### Create **HtdocsPug** Job
 
-      HtdocsPugJob = queue.create('HtdocsPug',
-        title: "Render (transform) pug template to html",
-        templatePug:templatePug,
-        indexHtml:indexHtml).delay(1500).save()
+        queue.create('HtdocsPug',
+          title: "Render (transform) pug template to html",
+          templatePug:templatePug,
+          indexHtml:indexHtml).delay(100).save()
 
 ### Create **HtdocsStylus** Job
 
-      HtdocsStylusJob = queue.create('HtdocsStylus',
-        title: "Render (transform) stylus template to css",
-        styleStyl:styleStyl,
-        styleCss:styleCss).delay(1500).save()
+        queue.create('HtdocsStylus',
+          title: "Render (transform) stylus template to css",
+          styleStyl:styleStyl,
+          styleCss:styleCss).delay(100).save()
 
 ### Create **HtdocsBrowserify** Job
 
-      HtdocsBrowserifyJob = queue.create('HtdocsBrowserify',
-        title: "Render (transform) coffee template to js"
-        dashCoffeeMd:dashCoffeeMd,
-        bundleJs:bundleJs).delay(1500).save()
+        queue.create('HtdocsBrowserify',
+          title: "Render (transform) coffee template to js"
+          dashCoffeeMd:dashCoffeeMd,
+          bundleJs:bundleJs).delay(100).save()
 
 ## Use dnode via shoe & Install endpoint
 

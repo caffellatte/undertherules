@@ -13,6 +13,8 @@
 
 ## Environment virables
 
+    {BOT_PANEL_HOST} = process.env
+    {BOT_PANEL_PORT} = process.env
     {PANEL_PORT}     = process.env
     {TELEGRAM_TOKEN} = process.env
 
@@ -33,7 +35,8 @@
     aboutText = '''
       Undertherules, MIT license
       Copyright (c) 2016 Mikhail G. Lutsenko
-      Start a conversation with the developer: @ltsnk'''
+      Email: m.g.lutsenko@gmail.com
+      Telegram: @ltsnk'''
 
 ## Getter Prototype
 
@@ -146,7 +149,13 @@
 
 ## Create Telegram instance interface
 
-    tg = new Telegram.Telegram TELEGRAM_TOKEN, {workers: 1}
+    tg = new Telegram.Telegram TELEGRAM_TOKEN, {
+      workers: 1
+      webAdmin: {
+       port: BOT_PANEL_PORT,
+       host: BOT_PANEL_HOST
+     }
+    }
 
 ## Telegram onMaster
 

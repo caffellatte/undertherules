@@ -78,8 +78,7 @@ Data agregetion via level-graph storage
         else
           if list.length is 1
             {predicate, object, type, username, first_name, last_name} = list[0]
-            nub = +new Date() // (1000 * 60 * 60 * 24)
-            pass = crypto.createHash('md5').update("#{object * nub}").digest("hex")
+            pass = crypto.createHash('md5').update("#{object}").digest("hex")
             job = queue.create('sendMessage',
               title: "Generate access link. Telegram UID: #{chatId}."
               chatId: chatId
@@ -98,8 +97,7 @@ Data agregetion via level-graph storage
         else
           if list.length is 1
             {subject, object, type, username, first_name, last_name} = list[0]
-            nub = +new Date() // (1000 * 60 * 60 * 24)
-            pass = crypto.createHash('md5').update("#{object * nub}").digest("hex")
+            pass = crypto.createHash('md5').update("#{object}").digest("hex")
             done(null,
               user:subject,
               pass:pass,
