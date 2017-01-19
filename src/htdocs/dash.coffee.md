@@ -98,6 +98,13 @@
         # watch
         watchSize = barHeight - 2
         @watch.setAttribute('style', "height:#{watchSize}px;width:#{watchSize}px;")
+        # logoImg
+        logoImgSize = barHeight - 7
+        logoImgStyle = "height:#{logoImgSize}px;width:#{logoImgSize}px;"
+        @logoImg.setAttribute('style', logoImgStyle)
+        # logo
+        logoSize = barHeight - 2
+        @logo.setAttribute('style', "height:#{logoSize}px;width:#{logoSize}px;")
 
 ### **Search Handler**
 

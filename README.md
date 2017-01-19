@@ -67,8 +67,10 @@ Run application with Node Foreman:
 - [Dnode](https://www.npmjs.com/package/dnode)
 - [Node Foreman](https://www.npmjs.com/package/foreman)
 - [Markdown Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
-- Install [node and npm](https://gist.github.com/isaacs/579814) without sudo
-- Install and config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
+- [Classes](https://arcturo.github.io/library/coffeescript/03_classes.html) from The Little Book on CoffeeScript
+- Why Invoke [apply](http://stackoverflow.com/questions/5936604/) instead of calling function directly?
+- How to install [node and npm](https://gist.github.com/isaacs/579814) without sudo
+- Config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
 - [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript
 
 ## Contribution
