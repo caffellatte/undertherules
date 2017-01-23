@@ -3,40 +3,35 @@
 ## Import NPM modules
 
     kue        = require 'kue'
-    dnode      = require 'dnode'
     Telegram   = require 'telegram-node-bot'
 
 ## Extract functions & constans from modules
 
-    {log}                                 = console
     {TelegramBaseController, TextCommand} = Telegram
 
-## Environment virables
-
-    {BOT_PANEL_HOST} = process.env
-    {BOT_PANEL_PORT} = process.env
-    {PANEL_PORT}     = process.env
-    {TELEGRAM_TOKEN} = process.env
-
-## Texts & other string content
+## Telegram texts
 
     helpText = '''
       /help - List of commands
       /start - Create user's profile
       /login - Log in to your dashboad
       /about - Feedback and complaints'''
-
     startText = '''
       Flexible environment for social network analysis (SNA).
       Software provides full-cycle of retrieving and subsequent
       processing data from the social networks.
       Usage: /help. Contacts: /about. Dashboard: /login.'''
-
     aboutText = '''
       Undertherules, MIT license
       Copyright (c) 2016 Mikhail G. Lutsenko
       Email: m.g.lutsenko@gmail.com
       Telegram: @ltsnk'''
+
+## Environment virables
+
+    {BOT_PANEL_HOST} = process.env
+    {BOT_PANEL_PORT} = process.env
+    {TELEGRAM_TOKEN} = process.env
 
 ## Getter Prototype
 
@@ -46,26 +41,25 @@
 ## Telegram HelpController
 
     class TelegramController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
+      constructor: () ->
       startHandler: ($) ->
-        @queue.create('start',
+        queue.create('start',
           title: "Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: startText
           chat: $.message.chat).save()
       panelHandler: ($) ->
-        @queue.create('panel',
+        queue.create('panel',
           title: "Telegram PanelController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: 'Link allows you to access the dashboad.\nIt will expire after every 24 hours.').save()
       aboutHandler: ($) ->
-        @queue.create('about',
+        queue.create('support',
           title: "Telegram AboutController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: aboutText).save()
       helpHandler: ($) ->
-        @queue.create('help',
+        queue.create('support',
           title: "Telegram HelpController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: helpText).save()
@@ -79,15 +73,21 @@
 ## Class OtherwiseController
 
     class OtherwiseController extends TelegramBaseController
-      constructor: (queue) ->
-        @queue = queue
+      constructor: () ->
       handle: ($) ->
-        $.sendMessage 'Unknown command. See list of commands: /help.'
+        @queue.create('sendMessage',
+          title: "Otherwise Controller. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: 'Unknown command. See list of commands: /help.').save()
 
-## Start Handler
+## Create a queue instance for creating jobs
 
-    startHandler = (data, queue, done) ->
-      {chatId, text, chat} = data
+    queue = kue.createQueue()
+
+###  Queue **start** process
+
+    queue.process 'start', (job, done) ->
+      {chatId, text, chat} = job.data
       if !chatId? or !text? or !chat?
         return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
       queue.create('CreateUser',
@@ -97,24 +97,22 @@
         text: "#{text}\n\n").save()
       done()
 
-## Panel Handler
+###  Queue **panel** process
 
-    panelHandler = (data, queue, done) ->
-      {chatId, text} = data
+    queue.process 'panel', (job, done) ->
+      {chatId, text} = job.data
       if !chatId? or !text?
-        errorText = "Error! at panelHandler. Faild to send text."
-        log errorText
-        return done(new Error(errorText))
+        return done(new Error("Error! at panelHandler. Faild to send text."))
       queue.create('CreateSession',
         title: "Create new session. Telegram UID: #{chatId}.",
         chatId: chatId,
         text: "#{text}\n\n").save()
       done()
 
-## Support Handler
+###  Queue **support** process
 
-    supportHandler = (data, queue, done) ->
-      {chatId, text} = data
+    queue.process 'support', (job, done) ->
+      {chatId, text} = job.data
       if !chatId? or !text?
         return done(new Error("Support Handler Error.\nUID: #{chatId}\Text: #{text}"))
       queue.create('sendMessage',
@@ -123,50 +121,20 @@
         text: text).save()
       done()
 
-## Create a queue instance for creating jobs
-
-    queue = kue.createQueue()
-
-###  Queue **start** process
-
-    queue.process 'start', (job, done) ->
-      startHandler job.data, queue, done
-
-###  Queue **panel** process
-
-    queue.process 'panel', (job, done) ->
-      panelHandler job.data, queue, done
-
-###  Queue **about** process
-
-    queue.process 'about', (job, done) ->
-      supportHandler job.data, queue, done
-
-###  Queue **help** process
-
-    queue.process 'help', (job, done) ->
-      supportHandler  job.data, queue, done
-
 ## Create Telegram instance interface
 
-    tg = new Telegram.Telegram TELEGRAM_TOKEN, {
+    tg = new Telegram.Telegram TELEGRAM_TOKEN,
       workers: 1
-      webAdmin: {
-       port: BOT_PANEL_PORT,
-       host: BOT_PANEL_HOST
-     }
-    }
+      webAdmin:
+        port: BOT_PANEL_PORT,
+        host: BOT_PANEL_HOST
 
-## Telegram onMaster
+## Telegram onMaster (Queue process handlers)
 
     tg.onMaster () =>
-
-### Queue process handlers
-
       queue.process 'sendMessage', (job, done) ->
         {chatId, text} = job.data
         if !chatId? or !text?
-          log "Error! [sendMessage] Faild to send messsage: #{text} to #{chatId}."
           return Error("Error! [sendMessage] Faild to send messsage.")
         tg.api.sendMessage chatId, text
         done()
@@ -174,8 +142,8 @@
 ## Telegram Bot Router
 
     tg.router
-      .when new TextCommand('start', 'startCommand'), new TelegramController(queue)
-      .when new TextCommand('login', 'panelCommand'), new TelegramController(queue)
-      .when new TextCommand('about', 'aboutCommand'), new TelegramController(queue)
-      .when new TextCommand('help',  'helpCommand'),  new TelegramController(queue)
-      .otherwise new OtherwiseController(queue)
+      .when new TextCommand('start', 'startCommand'), new TelegramController()
+      .when new TextCommand('login', 'panelCommand'), new TelegramController()
+      .when new TextCommand('about', 'aboutCommand'), new TelegramController()
+      .when new TextCommand('help',  'helpCommand'),  new TelegramController()
+      .otherwise new OtherwiseController()

@@ -18,7 +18,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 ## Extract functions & constans from modules
 
     {log} = console
-    {writeFileSync, readFileSync, mkdirsSync, copySync} = fs
+    {writeFileSync, readFileSync, mkdirsSync, copySync, removeSync} = fs
 
 ## Environment virables
 
@@ -133,8 +133,8 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
           return
         if _user? and _pass?
           AuthUserJob = queue.create('AuthenticateUser',
-            title: "Authenticate user. Telegram UID: #{user}.",
-            chatId: user).save()
+            title: "Authenticate user. Telegram UID: #{_user}.",
+            chatId: _user).save()
           AuthUserJob.on 'complete', (result) ->
             {user, pass, first_name, last_name} = result
             if +_user is +user and _pass is pass
@@ -194,3 +194,28 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       d.pipe(stream).pipe(d)
     )
     sock.install(server, '/dnode')
+
+## **Clean** static folder on exit
+
+    exitHandler = (options, err) =>
+      if err
+        log err.stack
+      if options.exit
+        process.exit()
+        return
+      if options.cleanup
+        removeSync STATIC_DIR
+        log "remove #{STATIC_DIR}"
+        log 'clean'
+
+### **do something when app is closing**
+
+    process.on 'exit', exitHandler.bind(null, cleanup: true)
+
+### **catches ctrl+c event**
+
+    process.on 'SIGINT', exitHandler.bind(null, exit: true)
+
+### **catches uncaught exceptions**
+
+    process.on 'uncaughtException', exitHandler.bind(null, exit: true)

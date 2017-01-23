@@ -89,7 +89,7 @@ Korotun V. (BuzzLike); Grigoriev E. (Esprite Games); Bogomolov A. (NMO);
 Akhmetov A. (RTA Moscow) ; Maas E. (TASS News Agency).
 
 
-## LICENSE
+## License
 
 MIT License
 

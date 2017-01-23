@@ -60,15 +60,6 @@ Kue job (task) processing that include the most part of bakcground work.
         log(stdout, stderr)
         done()
 
-### Queue **clean** handler
-
-    queue.process 'clean', (job, done) ->
-      {files} = job.data
-      files.forEach (item) ->
-        removeSync item
-        log "remove #{item}"
-        done()
-
 ## Parallel Processing With Cluster
 
 When cluster **.isMaster** the file is being executed in context of the master
@@ -92,12 +83,6 @@ as starting the web app bundled with Kue.
         # coffeelintJob = queue.create('coffeelint',
         #   title: "JavaScript Source Code Analyzer via coffee-jshint."
         #   files: coffeeFiles).save()
-
-### Create **clean** Job
-
-        # cleanJob = queue.create('clean',
-        #   title: "Remove `.db` files, `static` folder & etc."
-        #   files: [STATIC_DIR,LEVEL_DIR]).save()
 
 ## Fork workers
 
