@@ -1,6 +1,6 @@
 {
   "name": "undertherules",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Track, find, mining, parsing & analyzing data from social networks.",
   "dependencies": {
     "browserify": "^13.1.1",

@@ -17,21 +17,23 @@
 
 ### *Get Elements*
 
-        @main      = document.getElementById('main')
-        @input     = document.getElementById('input')
-        @line      = document.getElementById('line')
-        @output    = document.getElementById('output')
-        @cli       = document.getElementById('cli')
-        @bar       = document.getElementById('bar')
-        @logoImg   = document.getElementById('logoImg')
-        @watchImg  = document.getElementById('watchImg')
-        @logo      = document.getElementById('logo')
-        @watch     = document.getElementById('watch')
-        @cliFlag   = 'none'
-        @authFlag  = 'none'
+        @main       = document.getElementById('main')
+        @input      = document.getElementById('input')
+        @line       = document.getElementById('line')
+        @output     = document.getElementById('output')
+        @cli        = document.getElementById('cli')
+        @bar        = document.getElementById('bar')
+        @logoImg    = document.getElementById('logoImg')
+        @watchImg   = document.getElementById('watchImg')
+        @logo       = document.getElementById('logo')
+        @watch      = document.getElementById('watch')
+        @profile    = document.getElementById('profile')
+        @profileImg = document.getElementById('profileImg')
 
-### *addEventListeners*
+### *Varibles* & *addEventListeners*
 
+        @cliFlag    = 'none'
+        @authFlag   = 'none'
         window.addEventListener 'resize', @onresize
         @watch.onclick = @displayCli
         @line.onkeypress = @search
@@ -40,31 +42,26 @@
 
         Dnode.on 'remote', (remote) =>
           @remote = remote
-          user = @readCookie 'user'
-          pass = @readCookie 'pass'
+          {query} = parse(window.location.href)
+          user = @readCookie 'user' || query.replace('_s=', '').split(':')[0]
+          pass = @readCookie 'pass' || query.replace('_s=', '').split(':')[1]
+          if query? and '_s' in query
+            if credentials.length is 2
+              credentials = query.replace('_s=', '').split(':')
+              @createCookie 'user', credentials[0], 1
+              @createCookie 'pass', credentials[1], 1
+            else
+              @unauthorized()
+              return Dnode.end()
           if user and pass
             @remote.auth user, pass, (err, session) =>
               if err
                 console.log err
                 return Dnode.end()
               else
-                console.log session
+                @authorized session
           else
-            {query} = parse(window.location.href)
-            if query? and '_s' in query
-              credentials = query.replace('_s=', '').split(':')
-              if credentials.length is 2
-                @createCookie 'user', credentials[0], 1
-                @createCookie 'pass', credentials[1], 1
-              else
-                @unauthorized()
-                return Dnode.end()
-            else
-              @unauthorized()
-              return Dnode.end()
 
-
-                  # @authorized session
 
 ### **On Resize**
 
@@ -114,6 +111,13 @@
         # logo
         logoSize = barHeight - 2
         @logo.setAttribute('style', "height:#{logoSize}px;width:#{logoSize}px;")
+        # profileImg
+        profileImgSize = barHeight - 7
+        profileImgStyle = "height:#{profileImgSize}px;width:#{profileImgSize}px;"
+        @profileImg.setAttribute('style', profileImgStyle)
+        # profile
+        profileSize = barHeight - 2
+        @profile.setAttribute('style', "height:#{profileSize}px;width:#{profileSize}px;")
 
 ### **Search Handler**
 
@@ -182,7 +186,7 @@
       unauthorized: () ->
         mainStyle = "display:#{@authFlag};"
         @main.setAttribute('style', mainStyle)
-        # window.location.href = ''
+        window.location.href = 'http://t.me/UnderTheRulesBot'
         console.log 'unauthorized'
 
 
