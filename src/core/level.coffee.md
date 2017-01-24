@@ -127,21 +127,15 @@ Data agregetion via level-graph storage
 
 ## Initializing usersDB
 
-    db = level(LEVEL_DIR + '/users')
-    users = levelgraph db
+    users = levelgraph(level(LEVEL_DIR + '/users'))
+    tokens = levelgraph(level(LEVEL_DIR + '/tokens'))
 
 ## Start Dnode & listen Level Port
 
     server = http.createServer (req,res) ->
       res.setHeader('Content-Type', 'text/html')
       res.writeHead(200, {'Content-Type': 'text/plain'})
-      db.db.approximateSize '0', 'z', (err, size) ->
-        if err
-          log err
-        else
-          stats = db.db.getProperty('leveldb.stats')
-          sstables = db.db.getProperty('leveldb.sstables')
-          res.end("\n#{stats}\n#{sstables}\n#{size} bytes.")
+      res.end("ok\n\n.")
 
     server.listen LEVEL_PORT, ->
       log("""

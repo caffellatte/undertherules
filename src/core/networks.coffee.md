@@ -4,7 +4,10 @@ Simple collection of libraries for authorization, data scraping & etc.
 
 ## Import NPM modules
 
-    http = require 'http'
+    url     = require 'url'
+    kue     = require 'kue'
+    http    = require 'http'
+    request = require 'request'
 
 ## Extract functions & constans from modules
 
@@ -12,7 +15,15 @@ Simple collection of libraries for authorization, data scraping & etc.
 
 ## Environment virables
 
+    {VK_CLIENT_ID}     = process.env
+    {VK_CLIENT_SECRET} = process.env
+    {VK_REDIRECT_HOST} = process.env
+    {VK_REDIRECT_PORT} = process.env
     VK_REDIRECT_PORT = 8877 # process.env
+
+## Create a queue instance for creating jobs, providing us access to redis etc
+
+    queue = kue.createQueue()
 
 ## using array for storing reserved keywords for mix-ins.
 
@@ -58,7 +69,24 @@ Simple collection of libraries for authorization, data scraping & etc.
     user = User.find(1)
 
     handler = (req, res) ->
-      res.end('ok')
+      parts = url.parse(req.url, true)
+      {code, state} = parts.query
+      if code and state
+        switch state
+          when 'vk'
+            vkUrl  = 'https://oauth.vk.com/access_token?'
+            vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
+            vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+            vkUrl +=  "code=#{code}"
+            request vkUrl, (error, response, body) ->
+              if !error and response.statusCode == 200
+                console.log body
+                res.end(body)
+          else
+            res.end('Error!')
+      else
+        {error, error_description} = parts.query
+        res.end("#{error}. #{error_description}")
 
     server = http.createServer handler
 

@@ -36,7 +36,7 @@
         @authFlag   = 'none'
         window.addEventListener 'resize', @onresize
         @watch.onclick = @displayCli
-        @line.onkeypress = @search
+        @line.onkeypress = @onkeypressCli
 
 ### *Authorization*
 
@@ -98,37 +98,37 @@
         mainStyle += "background-position: center #{barHeight + 2}px;"
         @main.setAttribute('style', mainStyle)
         # watchImg
-        watchImgSize = barHeight - 7
+        watchImgSize = barHeight - 3
         watchImgStyle = "height:#{watchImgSize}px;width:#{watchImgSize}px;"
         @watchImg.setAttribute('style', watchImgStyle)
         # watch
-        watchSize = barHeight - 2
+        watchSize = barHeight - 1
         @watch.setAttribute('style', "height:#{watchSize}px;width:#{watchSize}px;")
         # logoImg
-        logoImgSize = barHeight - 7
+        logoImgSize = barHeight - 3
         logoImgStyle = "height:#{logoImgSize}px;width:#{logoImgSize}px;"
         @logoImg.setAttribute('style', logoImgStyle)
         # logo
-        logoSize = barHeight - 2
-        @logo.setAttribute('style', "height:#{logoSize}px;width:#{logoSize}px;")
+        logoSize = barHeight - 3
+        @logo.setAttribute('style', "height:#{logoSize}px;width:#{logoSize}px;padding-left:3px;padding-top:1px;")
         # profileImg
         profileImgSize = barHeight - 7
-        profileImgStyle = "height:#{profileImgSize}px;width:#{profileImgSize}px;"
+        profileImgStyle = "height:#{profileImgSize}px;width:#{profileImgSize}px;padding-top:3px;"
         @profileImg.setAttribute('style', profileImgStyle)
         # profile
-        profileSize = barHeight - 2
+        profileSize = barHeight - 1
         @profile.setAttribute('style', "height:#{profileSize}px;width:#{profileSize}px;")
 
-### **Search Handler**
+### **On Key PressCli Handler**
 
-      search: (event) =>
+      onkeypressCli: (event) =>
         {charCode} = event
         if charCode is 13
           {value} = @line
-          @output.innerHTML += "<code class='req'>#{value}</code><br>"
+          @output.innerHTML += "<code class='req'>#{value}</code><br><br>"
           @line.value = ''
           @remote.search value, (s) ->
-            @output.innerHTML += "<code class='rep'>#{s}</code><br>"
+            @output.innerHTML += "<code class='rep'>#{s}</code><br><br>"
           return false
         return
 
@@ -179,7 +179,8 @@
 ### **authorized**
 
       authorized: (session) ->
-        console.log session
+        @session = session
+        console.log @session
 
 ### **unauthorized**
 

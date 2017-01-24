@@ -22,10 +22,16 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
 
 ## Environment virables
 
-    {PANEL_PORT} = process.env
-    {PANEL_HOST} = process.env
-    {STATIC_DIR} = process.env
-    {HTDOCS_DIR} = process.env
+    {PANEL_PORT}       = process.env
+    {PANEL_HOST}       = process.env
+    {STATIC_DIR}       = process.env
+    {HTDOCS_DIR}       = process.env
+    {VK_CLIENT_ID}     = process.env
+    {VK_REDIRECT_HOST} = process.env
+    {VK_REDIRECT_PORT} = process.env
+    {VK_DISPLAY}       = process.env
+    {VK_SCOPE}         = process.env
+    {VK_VERSION}       = process.env
 
 ## Files & folders
 
@@ -126,8 +132,20 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       dateTime: (s, cb) ->
         cb(currentDateTime)
       search: (s, cb) ->
-        log(s)
-        cb(s)
+        switch s
+          when '/auth'
+            vkAuth = "<a href='https://oauth.vk.com/authorize?"
+            vkAuth += "client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&"
+            vkAuth += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+            vkAuth += "scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk'>vk.com</a>"
+            msg = ['Authorization via Social Networks', vkAuth]
+            log(msg.join('\n'))
+            cb(msg.join('<br>'))
+          else
+            msg = "Unknown command: '#{s}'"
+            log(msg)
+            cb(msg)
+
       auth: (_user, _pass, cb) ->
         if typeof cb != 'function'
           return
