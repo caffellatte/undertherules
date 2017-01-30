@@ -134,10 +134,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       search: (s, cb) ->
         switch s
           when '/auth'
-            vkAuth = "<a href='https://oauth.vk.com/authorize?"
-            vkAuth += "client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&"
-            vkAuth += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-            vkAuth += "scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk'>vk.com</a>"
+            vkAuth = 'Depricated.'
             msg = ['Authorization via Social Networks', vkAuth]
             log(msg.join('\n'))
             cb(msg.join('<br>'))

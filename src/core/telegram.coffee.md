@@ -13,6 +13,7 @@
 
     helpText = '''
       /help - List of commands
+      /auth - Authorization links
       /start - Create user's profile
       /login - Log in to your dashboad
       /about - Feedback and complaints'''
@@ -26,6 +27,8 @@
       Copyright (c) 2016 Mikhail G. Lutsenko
       Email: m.g.lutsenko@gmail.com
       Telegram: @ltsnk'''
+    authText = '''
+      Authorization via Social Networks'''
 
 ## Environment virables
 
@@ -63,8 +66,14 @@
           title: "Telegram HelpController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: helpText).save()
+      helpHandler: ($) ->
+        queue.create('auth',
+          title: "Telegram AuthController. Telegram UID: #{$.message.chat.id}."
+          chatId: $.message.chat.id
+          text: authText).save()
       @property 'routes',
         get: ->
+          'authCommand':  'authHandler'
           'helpCommand':  'helpHandler'
           'aboutCommand': 'aboutHandler'
           'startCommand': 'startHandler'
@@ -121,6 +130,20 @@
         text: text).save()
       done()
 
+###  Queue **auth** process
+
+    queue.process 'auth', (job, done) ->
+      {chatId, text} = job.data
+        AuthLinks = "vk.com: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"
+        text += AuthLinks
+      if !chatId? or !text?
+        return done(new Error("Auth Handler Error.\nUID: #{chatId}\Text: #{text}"))
+      queue.create('sendMessage',
+        title: "Send auth text. Telegram UID: #{chatId}."
+        chatId: chatId
+        text: text).save()
+      done()
+
 ## Create Telegram instance interface
 
     tg = new Telegram.Telegram TELEGRAM_TOKEN,
@@ -132,6 +155,7 @@
 ## Telegram onMaster (Queue process handlers)
 
     tg.onMaster () =>
+      console.log '\nTelegram: http://t.me/UnderTheRulesBot'
       queue.process 'sendMessage', (job, done) ->
         {chatId, text} = job.data
         if !chatId? or !text?
@@ -145,5 +169,6 @@
       .when new TextCommand('start', 'startCommand'), new TelegramController()
       .when new TextCommand('login', 'panelCommand'), new TelegramController()
       .when new TextCommand('about', 'aboutCommand'), new TelegramController()
+      .when new TextCommand('auth',  'authCommand'),  new TelegramController()
       .when new TextCommand('help',  'helpCommand'),  new TelegramController()
       .otherwise new OtherwiseController()
