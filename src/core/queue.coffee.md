@@ -71,12 +71,36 @@ as starting the web app bundled with Kue.
 ## Start Kue
 
       kue.app.set('title', 'Under The Rules')
-      # kue.Job.rangeByState 'complete', 0, 1000, 'asc', (err, jobs) ->
-      #   jobs.forEach (job) ->
-      #     job.remove ->
-      #       console.log 'removed ', job.id
+
       kue.app.listen KUE_PORT, ->
         log("Priority queue (cluster) started.\nWeb: http://0.0.0.0:#{KUE_PORT}.")
+
+## **Clean** job list on exit
+
+        exitHandler = (options, err) =>
+          if err
+            log err.stack
+          if options.exit
+            process.exit()
+            return
+          if options.cleanup
+            log 'cleanup'
+            kue.Job.rangeByState 'complete', 0, 1000, 'asc', (err, jobs) ->
+              jobs.forEach (job) ->
+                job.remove ->
+                  console.log 'removed ', job.id
+
+### **do something when app is closing**
+
+        process.on 'exit', exitHandler.bind(null, cleanup: true)
+
+### **catches ctrl+c event**
+
+        process.on 'SIGINT', exitHandler.bind(null, exit: true)
+
+### **catches uncaught exceptions**
+
+        process.on 'uncaughtException', exitHandler.bind(null, exit: true)
 
 ### Create **coffeelint** Job
 

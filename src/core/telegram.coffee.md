@@ -9,6 +9,18 @@
 
     {TelegramBaseController, TextCommand} = Telegram
 
+## Environment virables
+
+    {BOT_PANEL_HOST}   = process.env
+    {BOT_PANEL_PORT}   = process.env
+    {TELEGRAM_TOKEN}   = process.env
+    {VK_CLIENT_ID}     = process.env
+    {VK_REDIRECT_HOST} = process.env
+    {VK_REDIRECT_PORT} = process.env
+    {VK_DISPLAY}       = process.env
+    {VK_SCOPE}         = process.env
+    {VK_VERSION}       = process.env
+
 ## Telegram texts
 
     helpText = '''
@@ -27,14 +39,9 @@
       Copyright (c) 2016 Mikhail G. Lutsenko
       Email: m.g.lutsenko@gmail.com
       Telegram: @ltsnk'''
-    authText = '''
-      Authorization via Social Networks'''
-
-## Environment virables
-
-    {BOT_PANEL_HOST} = process.env
-    {BOT_PANEL_PORT} = process.env
-    {TELEGRAM_TOKEN} = process.env
+    authText = """
+      Authorization via Social Networks
+      vk.com: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"""
 
 ## Getter Prototype
 
@@ -66,11 +73,11 @@
           title: "Telegram HelpController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
           text: helpText).save()
-      helpHandler: ($) ->
-        queue.create('auth',
+      authHandler: ($) ->
+        queue.create('support',
           title: "Telegram AuthController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
-          text: authText).save()
+          text: authText+",#{$.message.chat.id}").save()
       @property 'routes',
         get: ->
           'authCommand':  'authHandler'
@@ -130,20 +137,6 @@
         text: text).save()
       done()
 
-###  Queue **auth** process
-
-    queue.process 'auth', (job, done) ->
-      {chatId, text} = job.data
-        AuthLinks = "vk.com: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"
-        text += AuthLinks
-      if !chatId? or !text?
-        return done(new Error("Auth Handler Error.\nUID: #{chatId}\Text: #{text}"))
-      queue.create('sendMessage',
-        title: "Send auth text. Telegram UID: #{chatId}."
-        chatId: chatId
-        text: text).save()
-      done()
-
 ## Create Telegram instance interface
 
     tg = new Telegram.Telegram TELEGRAM_TOKEN,
@@ -162,6 +155,28 @@
           return Error("Error! [sendMessage] Faild to send messsage.")
         tg.api.sendMessage chatId, text
         done()
+## **Clean** static folder on exit
+
+      exitHandler = (options, err) =>
+        if err
+          log err.stack
+        if options.exit
+          process.exit()
+          return
+        if options.cleanup
+          console.log 'cleanup'
+
+### **do something when app is closing**
+
+      process.on 'exit', exitHandler.bind(null, cleanup: true)
+
+### **catches ctrl+c event**
+
+      process.on 'SIGINT', exitHandler.bind(null, exit: true)
+
+### **catches uncaught exceptions**
+
+      process.on 'uncaughtException', exitHandler.bind(null, exit: true)
 
 ## Telegram Bot Router
 

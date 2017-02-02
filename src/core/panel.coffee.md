@@ -26,12 +26,6 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
     {PANEL_HOST}       = process.env
     {STATIC_DIR}       = process.env
     {HTDOCS_DIR}       = process.env
-    {VK_CLIENT_ID}     = process.env
-    {VK_REDIRECT_HOST} = process.env
-    {VK_REDIRECT_PORT} = process.env
-    {VK_DISPLAY}       = process.env
-    {VK_SCOPE}         = process.env
-    {VK_VERSION}       = process.env
 
 ## Files & folders
 
@@ -221,7 +215,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
       if options.cleanup
         removeSync STATIC_DIR
         log "remove #{STATIC_DIR}"
-        log 'clean'
+        log 'cleanup'
 
 ### **do something when app is closing**
 

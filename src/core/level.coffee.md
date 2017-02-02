@@ -109,6 +109,27 @@ Data agregetion via level-graph storage
           else
             done('err')
 
+## SaveTokens
+
+    SaveTokens = (data, queue, done) ->
+      {access_token, expires_in,user_id,email,chatId,first} = data
+      log access_token, expires_in,user_id,email,chatId
+      triple =
+        subject: chatId
+        predicate: expires_in
+        object: user_id
+        network: first
+        email: email
+        access_token: access_token
+      tokens.put triple, (err) ->
+        if err
+          done(new Error("Error! SaveTokens. #{triple}"))
+        else
+          queue.create('sendMessage',
+          title: "Send support text. Telegram UID: #{chatId}."
+          chatId: chatId
+          text: "Tokens saved.").save()
+        done()
 
 ###  Queue **CreateUser** process
 
@@ -124,6 +145,11 @@ Data agregetion via level-graph storage
 
     queue.process 'AuthenticateUser', (job, done) ->
       AuthenticateUser job.data, queue, done
+
+### Queue **SaveTokens** process
+
+    queue.process 'SaveTokens', (job, done) ->
+      SaveTokens job.data, queue, done
 
 ## Initializing usersDB
 
@@ -142,3 +168,26 @@ Data agregetion via level-graph storage
       LevelGraph module successful started. Listen port: #{LEVEL_PORT}.
       Web: http://0.0.0.0:#{LEVEL_PORT}
       """)
+
+## **Clean** static folder on exit
+
+    exitHandler = (options, err) =>
+      if err
+        log err.stack
+      if options.exit
+        process.exit()
+        return
+      if options.cleanup
+        log 'cleanup'
+
+### **do something when app is closing**
+
+    process.on 'exit', exitHandler.bind(null, cleanup: true)
+
+### **catches ctrl+c event**
+
+    process.on 'SIGINT', exitHandler.bind(null, exit: true)
+
+### **catches uncaught exceptions**
+
+    process.on 'uncaughtException', exitHandler.bind(null, exit: true)

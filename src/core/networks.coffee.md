@@ -72,8 +72,11 @@ Simple collection of libraries for authorization, data scraping & etc.
       parts = url.parse(req.url, true)
       {code, state} = parts.query
       if code and state
-        switch state
+        [first, ..., last] = state.split(',')
+        switch first
           when 'vk'
+            chatId = last
+            console.log(chatId)
             vkUrl  = 'https://oauth.vk.com/access_token?'
             vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
             vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
@@ -81,9 +84,19 @@ Simple collection of libraries for authorization, data scraping & etc.
             request vkUrl, (error, response, body) ->
               if !error and response.statusCode == 200
                 console.log body
+                {access_token, expires_in,user_id,email} = JSON.parse(body)
+                queue.create('SaveTokens',
+                  title: "Send support text. Telegram UID: #{chatId}."
+                  chatId: chatId,
+                  access_token: access_token,
+                  expires_in: expires_in,
+                  user_id: user_id,
+                  email: email
+                  first: first).save()
+                # Seve to db
                 res.end(body)
           else
-            res.end('Error!')
+            res.end(error)
       else
         {error, error_description} = parts.query
         res.end("#{error}. #{error_description}")
@@ -97,3 +110,26 @@ Simple collection of libraries for authorization, data scraping & etc.
       """)
     # user = new User
     # user.save()
+
+## **Clean** static folder on exit
+
+    exitHandler = (options, err) =>
+      if err
+        log err.stack
+      if options.exit
+        process.exit()
+        return
+      if options.cleanup
+        log 'cleanup'
+
+### **do something when app is closing**
+
+    process.on 'exit', exitHandler.bind(null, cleanup: true)
+
+### **catches ctrl+c event**
+
+    process.on 'SIGINT', exitHandler.bind(null, exit: true)
+
+### **catches uncaught exceptions**
+
+    process.on 'uncaughtException', exitHandler.bind(null, exit: true)
