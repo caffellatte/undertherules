@@ -25,48 +25,7 @@ Simple collection of libraries for authorization, data scraping & etc.
 
     queue = kue.createQueue()
 
-## using array for storing reserved keywords for mix-ins.
-
-    moduleKeywords = ['extended', 'included']
-
-## Declare Module that using mix-ins
-
-    class Module
-
-### **Extending**
-
-      @extend: (obj) ->
-        for key, value of obj when key not in moduleKeywords
-          @[key] = value
-
-        obj.extended?.apply(@)
-        this
-
-### **Including**
-
-      @include: (obj) ->
-        for key, value of obj when key not in moduleKeywords
-          @::[key] = value
-
-        obj.included?.apply(@)
-        this
-
-## Defi
-
-    ORM =
-      find: (id) ->
-        log id
-      create: (attrs) ->
-      extended: ->
-        @include
-          save: ->
-
-    class User extends Module
-      @extend ORM
-
-## Start
-
-    user = User.find(1)
+## HTTP handler
 
     handler = (req, res) ->
       parts = url.parse(req.url, true)
@@ -94,7 +53,9 @@ Simple collection of libraries for authorization, data scraping & etc.
                   email: email
                   first: first).save()
                 # Seve to db
-                res.end(body)
+                # res.end(body)
+                res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
+                res.end()
           else
             res.end(error)
       else
@@ -108,8 +69,6 @@ Simple collection of libraries for authorization, data scraping & etc.
       Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
       Web: http://0.0.0.0:#{VK_REDIRECT_PORT}
       """)
-    # user = new User
-    # user.save()
 
 ## **Clean** static folder on exit
 

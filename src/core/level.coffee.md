@@ -1,4 +1,4 @@
-# honeycomb.coffee.md
+# level.coffee.md
 
 Data agregetion via level-graph storage
 
@@ -128,7 +128,7 @@ Data agregetion via level-graph storage
           queue.create('sendMessage',
           title: "Send support text. Telegram UID: #{chatId}."
           chatId: chatId
-          text: "Tokens saved.").save()
+          text: "Token saved.").save()
         done()
 
 ###  Queue **CreateUser** process

@@ -40,8 +40,7 @@
       Email: m.g.lutsenko@gmail.com
       Telegram: @ltsnk'''
     authText = """
-      Authorization via Social Networks
-      vk.com: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"""
+      Authorization via Social Networks"""
 
 ## Getter Prototype
 
@@ -74,10 +73,12 @@
           chatId: $.message.chat.id
           text: helpText).save()
       authHandler: ($) ->
+        vkAuthLnk = "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"
+        text = "#{authText}\n#{vkAuthLnk},#{$.message.chat.id}"
         queue.create('support',
           title: "Telegram AuthController. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
-          text: authText+",#{$.message.chat.id}").save()
+          text: text).save()
       @property 'routes',
         get: ->
           'authCommand':  'authHandler'
