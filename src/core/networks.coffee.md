@@ -7,6 +7,7 @@ Simple collection of libraries for authorization, data scraping & etc.
     url     = require 'url'
     kue     = require 'kue'
     http    = require 'http'
+    natural = require 'natural'
     request = require 'request'
 
 ## Extract functions & constans from modules
@@ -24,6 +25,47 @@ Simple collection of libraries for authorization, data scraping & etc.
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
     queue = kue.createQueue()
+
+## Define link tokenizer
+
+    tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
+
+    queue.process 'mediaAnalyzer', (job, done) ->
+      {chatId, href, host, path} = job.data
+      queue.create('sendMessage',
+        title: "mediaAnalyzer Telegram UID: #{chatId}."
+        chatId
+        text: "Analyzing link: #{href}").save()
+      GetTokensJob = queue.create('GetTokens',
+        title: 'Get Tokens',
+        chatId: chatId).save()
+      GetTokensJob.on 'complete', (result) ->
+        log result
+      done()
+
+    queue.process 'mediaChecker', (job, done) ->
+      {chatId, text} = job.data
+      log chatId, text
+      rawLinks = tokenizer.tokenize(text)
+      if rawLinks.length < 1
+        queue.create('sendMessage',
+          title: "mediaChecker Telegram UID: #{chatId}."
+          chatId: chatId
+          text: 'Unknown command. List of commands: /help.').save()
+
+      rawLinks.forEach (item) ->
+        {href, host, path} = url.parse(item)
+        switch host
+          when 'vk.com'
+            if path
+              queue.create('mediaAnalyzer'
+                title: "Analyze Media #{href}",
+                chatId: chatId,
+                href: href,
+                host: host,
+                path: path).save()
+        done()
+
 
 ## HTTP handler
 

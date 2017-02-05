@@ -92,10 +92,10 @@
     class OtherwiseController extends TelegramBaseController
       constructor: () ->
       handle: ($) ->
-        @queue.create('sendMessage',
-          title: "Otherwise Controller. Telegram UID: #{$.message.chat.id}."
+        queue.create('mediaChecker',
+          title: "mediaChecker Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
-          text: 'Unknown command. See list of commands: /help.').save()
+          text: $.message.text).save()
 
 ## Create a queue instance for creating jobs
 

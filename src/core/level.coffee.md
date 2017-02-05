@@ -107,7 +107,7 @@ Data agregetion via level-graph storage
               type:username
             )
           else
-            done('err')
+            done(err)
 
 ## SaveTokens
 
@@ -131,6 +131,19 @@ Data agregetion via level-graph storage
           text: "Token saved.").save()
         done()
 
+## GetTokens
+
+    GetTokens = (data, queue, done) ->
+    {chatId} = data
+    tokens.get { subject: chatId }, (err, list) ->
+      if err
+        done(err)
+      else
+        if list
+          done(list)
+        else
+          done(err)
+
 ###  Queue **CreateUser** process
 
     queue.process 'CreateUser', (job, done) ->
@@ -151,10 +164,17 @@ Data agregetion via level-graph storage
     queue.process 'SaveTokens', (job, done) ->
       SaveTokens job.data, queue, done
 
+### Queue **GetTokens** process
+
+    queue.process 'GetTokens', (job, done) ->
+      GetTokens job.data, queue, done
+
+
 ## Initializing usersDB
 
-    users = levelgraph(level(LEVEL_DIR + '/users'))
-    tokens = levelgraph(level(LEVEL_DIR + '/tokens'))
+    users   = levelgraph(level(LEVEL_DIR + '/users'))
+    tokens  = levelgraph(level(LEVEL_DIR + '/tokens'))
+    history = levelgraph(level(LEVEL_DIR + '/history'))
 
 ## Start Dnode & listen Level Port
 

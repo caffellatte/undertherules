@@ -8,6 +8,7 @@ Kue job (task) processing that include the most part of bakcground work.
     fs         = require 'fs-extra'
     os         = require 'os'
     kue        = require 'kue'
+    url        = require 'url'
     dnode      = require 'dnode'
     crypto     = require 'crypto'
     cluster    = require 'cluster'
@@ -60,57 +61,36 @@ Kue job (task) processing that include the most part of bakcground work.
         log(stdout, stderr)
         done()
 
-## Parallel Processing With Cluster
-
-When cluster **.isMaster** the file is being executed in context of the master
-process, in which case you may perform tasks that you only want once, such
-as starting the web app bundled with Kue.
-
-    if cluster.isMaster
-
 ## Start Kue
 
-      kue.app.set('title', 'Under The Rules')
+    kue.app.set('title', 'Under The Rules')
 
-      kue.app.listen KUE_PORT, ->
-        log("Priority queue (cluster) started.\nWeb: http://0.0.0.0:#{KUE_PORT}.")
+    kue.app.listen KUE_PORT, ->
+      log("Priority queue (cluster) started.\nWeb: http://0.0.0.0:#{KUE_PORT}.")
+      kue.Job.rangeByState 'complete', 0, 1000, 'asc', (err, jobs) ->
+        jobs.forEach (job) ->
+          job.remove ->
+            console.log 'removed ', job.id
 
 ## **Clean** job list on exit
 
-        exitHandler = (options, err) =>
-          if err
-            log err.stack
-          if options.exit
-            process.exit()
-            return
-          if options.cleanup
-            log 'cleanup'
-            kue.Job.rangeByState 'complete', 0, 1000, 'asc', (err, jobs) ->
-              jobs.forEach (job) ->
-                job.remove ->
-                  console.log 'removed ', job.id
+    exitHandler = (options, err) =>
+      if err
+        log err.stack
+      if options.exit
+        process.exit()
+        return
+      if options.cleanup
+        log 'cleanup'
 
 ### **do something when app is closing**
 
-        process.on 'exit', exitHandler.bind(null, cleanup: true)
+    process.on 'exit', exitHandler.bind(null, cleanup: true)
 
 ### **catches ctrl+c event**
 
-        process.on 'SIGINT', exitHandler.bind(null, exit: true)
+    process.on 'SIGINT', exitHandler.bind(null, exit: true)
 
 ### **catches uncaught exceptions**
 
-        process.on 'uncaughtException', exitHandler.bind(null, exit: true)
-
-## Fork workers
-
-        i = 1
-        while i < numCPUs
-          cluster.fork()
-          i += 1
-
-## The logic in the else block is executed **per worker**.
-
-    else
-      {id} = cluster.worker
-      log("Worker [#{id}] started.")
+    process.on 'uncaughtException', exitHandler.bind(null, exit: true)
