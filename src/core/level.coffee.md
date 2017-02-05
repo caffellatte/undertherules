@@ -134,15 +134,15 @@ Data agregetion via level-graph storage
 ## GetTokens
 
     GetTokens = (data, queue, done) ->
-    {chatId} = data
-    tokens.get { subject: chatId }, (err, list) ->
-      if err
-        done(err)
-      else
-        if list
-          done(list)
-        else
+      {chatId} = data
+      tokens.get { subject: chatId }, (err, list) =>
+        if err
           done(err)
+        else
+          if list
+            done(null, list)
+          else
+            done(err)
 
 ###  Queue **CreateUser** process
 

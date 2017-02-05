@@ -4,11 +4,13 @@ Simple collection of libraries for authorization, data scraping & etc.
 
 ## Import NPM modules
 
-    url     = require 'url'
-    kue     = require 'kue'
-    http    = require 'http'
-    natural = require 'natural'
-    request = require 'request'
+    fs          = require 'fs-extra'
+    url         = require 'url'
+    kue         = require 'kue'
+    http        = require 'http'
+    natural     = require 'natural'
+    request     = require 'request'
+    querystring = require 'querystring'
 
 ## Extract functions & constans from modules
 
@@ -20,7 +22,11 @@ Simple collection of libraries for authorization, data scraping & etc.
     {VK_CLIENT_SECRET} = process.env
     {VK_REDIRECT_HOST} = process.env
     {VK_REDIRECT_PORT} = process.env
-    VK_REDIRECT_PORT = 8877 # process.env
+    {VK_REDIRECT_PORT} = process.env
+    {VK_VERSION}       = process.env
+    {STATIC_DIR}       = process.env
+    {PANEL_PORT}       = process.env
+    {PANEL_HOST}       = process.env
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
@@ -30,22 +36,79 @@ Simple collection of libraries for authorization, data scraping & etc.
 
     tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
 
+    queue.process 'vkWallStatic', (job, done) ->
+      {chatId, name, items} = job.data
+      filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
+      fs.writeFileSync filename, "id;from_id;owner_id;date;post_type;comments;likes;reposts\n"
+      [first, ..., last] = items
+      rows = ''
+      for item in items
+        {id,from_id,owner_id,date,post_type,comments,likes,reposts} = item
+        rows += "#{id};#{from_id};#{owner_id};#{new Date(date*1000)};#{post_type};#{comments.count};#{likes.count};#{reposts.count}\n"
+        if id is last.id
+          fs.appendFileSync filename, rows
+          done(null, "http://#{PANEL_HOST}:#{PANEL_PORT}/files/#{name}-wall-#{items.length}.csv")
+
+    queue.process 'vkMediaScraper', (job, done) ->
+      {chatId, method, params, items} = job.data
+      requestUrl = "https://api.vk.com/method/#{method}?#{querystring.stringify(params)}"
+      request requestUrl, (error, response, body) =>
+        if not error and response.statusCode is 200
+          body = JSON.parse(body)
+          if (body.response.count - params.offset) > 0
+            params.offset += 100
+            items = items.concat(body.response.items)
+            vkMediaScraperJob = queue.create('vkMediaScraper',
+              title: "mediaScraper Telegram UID: #{chatId}.",
+              chatId: chatId,
+              method: 'wall.get',
+              params: params,
+              items: items).save()
+          else
+            vkWallStaticJob = queue.create('vkWallStatic',
+              title: "vkWallStatic Telegram UID: #{chatId}.",
+              chatId: chatId,
+              name: (params.domain || params.user_id),
+              items: items).save()
+            vkWallStaticJob.on 'complete', (result) =>
+              queue.create('sendMessage',
+                title: "vkWallStaticJob Telegram UID: #{chatId}.",
+                chatId: chatId,
+                text: result).save()
+          done()
+        else
+          done(error)
+      done()
+
     queue.process 'mediaAnalyzer', (job, done) ->
       {chatId, href, host, path} = job.data
-      queue.create('sendMessage',
-        title: "mediaAnalyzer Telegram UID: #{chatId}."
-        chatId
-        text: "Analyzing link: #{href}").save()
       GetTokensJob = queue.create('GetTokens',
         title: 'Get Tokens',
         chatId: chatId).save()
       GetTokensJob.on 'complete', (result) ->
-        log result
+        {access_token} = result[0]
+        if access_token
+          params =
+            access_token: access_token
+            offset: 0
+            count: 100
+            extended: 0
+            filter: 'all'
+            v: VK_VERSION
+          if 'id' in path
+            params.owner_id = path[3..path.length]
+          else
+            params.domain = path[1..path.length]
+          vkMediaScraperJob = queue.create('vkMediaScraper',
+            title: "mediaScraper Telegram UID: #{chatId}.",
+            chatId: chatId,
+            method: 'wall.get',
+            params: params,
+            items: []).save()
       done()
 
     queue.process 'mediaChecker', (job, done) ->
       {chatId, text} = job.data
-      log chatId, text
       rawLinks = tokenizer.tokenize(text)
       if rawLinks.length < 1
         queue.create('sendMessage',
@@ -58,7 +121,7 @@ Simple collection of libraries for authorization, data scraping & etc.
         switch host
           when 'vk.com'
             if path
-              queue.create('mediaAnalyzer'
+              queue.create('mediaAnalyzer',
                 title: "Analyze Media #{href}",
                 chatId: chatId,
                 href: href,

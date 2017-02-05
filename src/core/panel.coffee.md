@@ -45,6 +45,7 @@ a thin wrapper on top of sockjs that provides websockets with fallbacks.
     HtdocsStatic = (data, done) ->
       {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = data
       mkdirsSync STATIC_DIR
+      mkdirsSync "#{STATIC_DIR}/files"
       log "make folder #{STATIC_DIR}"
       copySync htdocsImg, staticImg
       log "copy folder #{htdocsImg} -> #{staticImg}"
