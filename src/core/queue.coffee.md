@@ -188,13 +188,13 @@ Kue job (task) processing that include the most part of bakcground work.
       .when new TextCommand('help',  'helpCommand'),  new TelegramController()
       .otherwise new OtherwiseController()
 
+## Define link tokenizer
+
+    tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
+
 ## Cluster Master
 
     if cluster.isMaster
-
-## Define link tokenizer
-
-      tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
 
 ## Start Kue
 
@@ -206,61 +206,7 @@ Kue job (task) processing that include the most part of bakcground work.
             job.remove ->
               console.log 'removed ', job.id
 
-## Create HTTP Server for LevelDB
 
-      LevelServer = http.createServer (req,res) ->
-        res.setHeader('Content-Type', 'text/html')
-        res.writeHead(200, {'Content-Type': 'text/plain'})
-        res.end("ok\n\n.")
-
-      LevelServer.listen LEVEL_PORT, ->
-        log("""
-        LevelGraph module successful started. Listen port: #{LEVEL_PORT}.
-        Web: http://0.0.0.0:#{LEVEL_PORT}
-        """)
-
-## Create HTTP Server for Netwoks
-
-      NetworksServer = http.createServer (req, res) ->
-        parts = url.parse(req.url, true)
-        {code, state} = parts.query
-        if code and state
-          [first, ..., last] = state.split(',')
-          switch first
-            when 'vk'
-              chatId = last
-              console.log(chatId)
-              vkUrl  = 'https://oauth.vk.com/access_token?'
-              vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
-              vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-              vkUrl +=  "code=#{code}"
-              request vkUrl, (error, response, body) ->
-                if !error and response.statusCode == 200
-                  console.log body
-                  {access_token, expires_in,user_id,email} = JSON.parse(body)
-                  queue.create('SaveTokens',
-                    title: "Send support text. Telegram UID: #{chatId}."
-                    chatId: chatId,
-                    access_token: access_token,
-                    expires_in: expires_in,
-                    user_id: user_id,
-                    email: email
-                    first: first).save()
-                  # Seve to db
-                  # res.end(body)
-                  res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
-                  res.end()
-            else
-              res.end(error)
-        else
-          {error, error_description} = parts.query
-          res.end("#{error}. #{error_description}")
-
-        NetworksServer.listen VK_REDIRECT_PORT, ->
-          log("""
-          Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
-          Web: http://0.0.0.0:#{VK_REDIRECT_PORT}
-          """)
 
 ## Create Level Dir folder
 
@@ -413,6 +359,62 @@ Kue job (task) processing that include the most part of bakcground work.
         i++
 
     else
+
+## Create HTTP Server for LevelDB
+
+      LevelServer = http.createServer (req,res) ->
+        res.setHeader('Content-Type', 'text/html')
+        res.writeHead(200, {'Content-Type': 'text/plain'})
+        res.end("ok\n\n.")
+
+      LevelServer.listen LEVEL_PORT, ->
+        log("""
+        LevelGraph module successful started. Listen port: #{LEVEL_PORT}.
+        Web: http://0.0.0.0:#{LEVEL_PORT}
+        """)
+
+## Create HTTP Server for Netwoks
+
+      NetworksServer = http.createServer (req, res) ->
+        parts = url.parse(req.url, true)
+        {code, state} = parts.query
+        if code and state
+          [first, ..., last] = state.split(',')
+          switch first
+            when 'vk'
+              chatId = last
+              console.log(chatId)
+              vkUrl  = 'https://oauth.vk.com/access_token?'
+              vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
+              vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+              vkUrl +=  "code=#{code}"
+              request vkUrl, (error, response, body) ->
+                if !error and response.statusCode == 200
+                  console.log body
+                  {access_token, expires_in,user_id,email} = JSON.parse(body)
+                  queue.create('SaveTokens',
+                    title: "Send support text. Telegram UID: #{chatId}."
+                    chatId: chatId,
+                    access_token: access_token,
+                    expires_in: expires_in,
+                    user_id: user_id,
+                    email: email
+                    first: first).save()
+                  # Seve to db
+                  # res.end(body)
+                  res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
+                  res.end()
+            else
+              res.end(error)
+        else
+          {error, error_description} = parts.query
+          res.end("#{error}. #{error_description}")
+
+      NetworksServer.listen VK_REDIRECT_PORT*1, VK_REDIRECT_HOST, ->
+        log("""
+        Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
+        Web: http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}
+        """)
 
 ### Queue **coffeelint** handler
 
