@@ -32,47 +32,22 @@ Kue job (task) processing that include the most part of bakcground work.
     {exec} = require 'child_process'
     {stringify, parse} = JSON
     {writeFileSync, readFileSync} = fs
-    {TelegramBaseController, TextCommand} = TelegramBot
-    {removeSync, mkdirsSync, copySync, ensureDirSync, removeSync} = fs
-
+    {TelegramBaseController, TextCommand, InputFile} = TelegramBot
+    {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
 
 ## Environment virables
 
-    {
-      KUE_PORT,
-      CORE_DIR,
-      LEVEL_DIR,
-      STATIC_DIR,
-      HTDOCS_DIR,
-      LEVEL_DIR,
-      LEVEL_PORT,
-      PANEL_PORT,
-      PANEL_HOST,
-      VK_CLIENT_ID,
-      VK_REDIRECT_HOST,
-      VK_REDIRECT_PORT,
-      VK_DISPLAY,
-      VK_SCOPE,
-      VK_VERSION,
-      VK_CLIENT_SECRET,
-      VK_VERSION,
-      STATIC_DIR,
-      PANEL_PORT,
-      PANEL_HOST,
-      BOT_PANEL_HOST,
-      BOT_PANEL_PORT,
-      TELEGRAM_TOKEN
-    }   = process.env
-    numCPUs            = require('os').cpus().length - 2
+    numCPUs = require('os').cpus().length
+    {KUE_PORT, PANEL_PORT, PANEL_HOST} = process.env
+    {CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR} = process.env
+    {VK_CLIENT_ID, VK_REDIRECT_HOST, VK_REDIRECT_PORT} = process.env
+    {VK_DISPLAY, VK_SCOPE, VK_VERSION, VK_CLIENT_SECRET} = process.env
+    {VK_VERSION, BOT_PANEL_HOST, BOT_PANEL_PORT, TELEGRAM_TOKEN} = process.env
 
 ## File & Folders Structure
 
     dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
-    kueCoffeeMd       = "#{CORE_DIR}/kue.coffee.md"
-    levelCoffeeMd     = "#{CORE_DIR}/level.coffee.md"
-    panelCoffeeMd     = "#{CORE_DIR}/panel.coffee.md"
-    networksCoffeeMd  = "#{CORE_DIR}/networks.coffee.md"
-    telegramCoffeeMd  = "#{CORE_DIR}/telegram.coffee.md"
+    undertherulesLit  = "#{CORE_DIR}/undertherules.litcoffee"
     staticImg         = "#{STATIC_DIR}/img"
     staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
     indexHtml         = "#{STATIC_DIR}/index.html"
@@ -83,14 +58,7 @@ Kue job (task) processing that include the most part of bakcground work.
     templatePug       = "#{HTDOCS_DIR}/template.pug"
     styleStyl         = "#{HTDOCS_DIR}/style.styl"
     dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
-    coffeeFiles       = [
-      dashCoffeeMd,
-      kueCoffeeMd,
-      levelCoffeeMd,
-      panelCoffeeMd,
-      networksCoffeeMd,
-      telegramCoffeeMd
-    ]
+    coffeeFiles       = [dashCoffeeMd, undertherulesLit]
 
 ## Telegram texts
 
@@ -112,7 +80,6 @@ Kue job (task) processing that include the most part of bakcground work.
       Telegram: @ltsnk'''
     authText = """
       Authorization via Social Networks"""
-
 
 ## Getter Prototype
 
@@ -190,8 +157,15 @@ Kue job (task) processing that include the most part of bakcground work.
       queue.process 'sendMessage', (job, done) ->
         {chatId, text} = job.data
         if !chatId? or !text?
-          return Error("Error! [sendMessage] Faild to send messsage.")
+          return Error("Error! [sendMessage]")
         tg.api.sendMessage chatId, text
+        done()
+
+      queue.process 'sendDocument', (job, done) ->
+        {chatId, filePath} = job.data
+        if !chatId? or !filePath?
+          return Error("Error! [sendDocument]")
+        tg.api.sendDocument chatId, InputFile.byFilePath(filePath)
         done()
 
       log '\nTelegram: http://t.me/UnderTheRulesBot'
@@ -280,6 +254,50 @@ Kue job (task) processing that include the most part of bakcground work.
         d.pipe(stream).pipe(d)
       )
       sock.install(server, '/dnode')
+
+## Create HTTP Server for Netwoks
+
+      NetworksServer = http.createServer (req, res) ->
+        parts = url.parse(req.url, true)
+        {code, state} = parts.query
+        if code and state
+          [first, ..., last] = state.split(',')
+          switch first
+            when 'vk'
+              chatId = last
+              console.log(chatId)
+              vkUrl  = 'https://oauth.vk.com/access_token?'
+              vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
+              vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+              vkUrl +=  "code=#{code}"
+              request vkUrl, (error, response, body) ->
+                if !error and response.statusCode == 200
+                  console.log body
+                  {access_token, expires_in,user_id,email} = JSON.parse(body)
+                  queue.create('SaveTokens',
+                    title: "Send support text. Telegram UID: #{chatId}."
+                    chatId: chatId,
+                    access_token: access_token,
+                    expires_in: expires_in,
+                    user_id: user_id,
+                    email: email
+                    first: first).save()
+                  # Seve to db
+                  # res.end(body)
+                  res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
+                  res.end()
+            else
+              res.end(error)
+        else
+          {error, error_description} = parts.query
+          res.end("#{error}. #{error_description}")
+
+      NetworksServer.listen VK_REDIRECT_PORT*1, VK_REDIRECT_HOST, ->
+        log("""
+        Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
+        Web: http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}
+        """)
+
 
 ## Create Level Dir folder
 
@@ -461,68 +479,12 @@ Kue job (task) processing that include the most part of bakcground work.
 
 ## Cluster Worker
 
-      i = 0
+      i = 2
       while i < numCPUs
         cluster.fork()
         i++
 
     else
-
-## Create HTTP Server for LevelDB
-
-      LevelServer = http.createServer (req,res) ->
-        res.setHeader('Content-Type', 'text/html')
-        res.writeHead(200, {'Content-Type': 'text/plain'})
-        res.end("ok\n\n.")
-
-      LevelServer.listen LEVEL_PORT, ->
-        log("""
-        LevelGraph module successful started. Listen port: #{LEVEL_PORT}.
-        Web: http://0.0.0.0:#{LEVEL_PORT}
-        """)
-
-## Create HTTP Server for Netwoks
-
-      NetworksServer = http.createServer (req, res) ->
-        parts = url.parse(req.url, true)
-        {code, state} = parts.query
-        if code and state
-          [first, ..., last] = state.split(',')
-          switch first
-            when 'vk'
-              chatId = last
-              console.log(chatId)
-              vkUrl  = 'https://oauth.vk.com/access_token?'
-              vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
-              vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-              vkUrl +=  "code=#{code}"
-              request vkUrl, (error, response, body) ->
-                if !error and response.statusCode == 200
-                  console.log body
-                  {access_token, expires_in,user_id,email} = JSON.parse(body)
-                  queue.create('SaveTokens',
-                    title: "Send support text. Telegram UID: #{chatId}."
-                    chatId: chatId,
-                    access_token: access_token,
-                    expires_in: expires_in,
-                    user_id: user_id,
-                    email: email
-                    first: first).save()
-                  # Seve to db
-                  # res.end(body)
-                  res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
-                  res.end()
-            else
-              res.end(error)
-        else
-          {error, error_description} = parts.query
-          res.end("#{error}. #{error_description}")
-
-      NetworksServer.listen VK_REDIRECT_PORT*1, VK_REDIRECT_HOST, ->
-        log("""
-        Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
-        Web: http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}
-        """)
 
 ### Queue **coffeelint** handler
 
@@ -539,15 +501,15 @@ Kue job (task) processing that include the most part of bakcground work.
       queue.process 'vkWallStatic', (job, done) ->
         {chatId, name, items} = job.data
         filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
-        fs.writeFileSync filename, "id;from_id;owner_id;date;post_type;comments;likes;reposts\n"
+        fs.writeFileSync filename, "id;link;from_id;owner_id;date;post_type;comments;likes;reposts\n"
         [first, ..., last] = items
         rows = ''
         for item in items
           {id,from_id,owner_id,date,post_type,comments,likes,reposts} = item
-          rows += "#{id};#{from_id};#{owner_id};#{new Date(date*1000)};#{post_type};#{comments.count};#{likes.count};#{reposts.count}\n"
+          rows += "#{id};https://vk.com/wall#{owner_id}_#{id};#{from_id};#{owner_id};#{new Date(date*1000)};#{post_type};#{comments.count};#{likes.count};#{reposts.count}\n"
           if id is last.id
             fs.appendFileSync filename, rows
-            done(null, "http://#{PANEL_HOST}:#{PANEL_PORT}/files/#{name}-wall-#{items.length}.csv")
+            done(null, filename)
 
 ### Queue **vkMediaScraper** process
 
@@ -573,11 +535,11 @@ Kue job (task) processing that include the most part of bakcground work.
                 name: (params.domain || params.user_id),
                 items: items).save()
               vkWallStaticJob.on 'complete', (result) =>
-                queue.create('sendMessage',
+                queue.create('sendDocument',
                   title: "vkWallStaticJob Telegram UID: #{chatId}.",
                   chatId: chatId,
-                  text: result).save()
-            done()
+                  filePath: result).save()
+                done()
           else
             done(error)
         done()
