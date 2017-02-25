@@ -1,4 +1,5 @@
-# kue.coffee.md
+undertherules.litcoffee
+=======================
 
 Kue job (task) processing that include the most part of bakcground work.
 
@@ -8,25 +9,32 @@ Kue job (task) processing that include the most part of bakcground work.
     fs          = require 'fs-extra'
     os          = require 'os'
     kue         = require 'kue'
+    pug         = require 'pug'
     url         = require 'url'
     http        = require 'http'
+    shoe        = require 'shoe'
     dnode       = require 'dnode'
     level       = require 'levelup'
     crypto      = require 'crypto'
+    stylus      = require 'stylus'
     natural     = require 'natural'
     cluster     = require 'cluster'
     request     = require 'request'
+    coffeeify   = require 'coffeeify'
+    browserify  = require 'browserify'
     levelgraph  = require 'levelgraph'
     querystring = require 'querystring'
     TelegramBot = require 'telegram-node-bot'
 
 ## Extract functions & constans from modules
 
-    {log}              = console
-    {exec}             = require 'child_process'
+    {log}  = console
+    {exec} = require 'child_process'
     {stringify, parse} = JSON
-    {TelegramBaseController, TextCommand}             = TelegramBot
-    {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
+    {writeFileSync, readFileSync} = fs
+    {TelegramBaseController, TextCommand} = TelegramBot
+    {removeSync, mkdirsSync, copySync, ensureDirSync, removeSync} = fs
+
 
 ## Environment virables
 
@@ -65,6 +73,16 @@ Kue job (task) processing that include the most part of bakcground work.
     panelCoffeeMd     = "#{CORE_DIR}/panel.coffee.md"
     networksCoffeeMd  = "#{CORE_DIR}/networks.coffee.md"
     telegramCoffeeMd  = "#{CORE_DIR}/telegram.coffee.md"
+    staticImg         = "#{STATIC_DIR}/img"
+    staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
+    indexHtml         = "#{STATIC_DIR}/index.html"
+    styleCss          = "#{STATIC_DIR}/style.css"
+    bundleJs          = "#{STATIC_DIR}/bundle.js"
+    htdocsImg         = "#{HTDOCS_DIR}/img"
+    htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico"
+    templatePug       = "#{HTDOCS_DIR}/template.pug"
+    styleStyl         = "#{HTDOCS_DIR}/style.styl"
+    dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
     coffeeFiles       = [
       dashCoffeeMd,
       kueCoffeeMd,
@@ -206,7 +224,62 @@ Kue job (task) processing that include the most part of bakcground work.
             job.remove ->
               console.log 'removed ', job.id
 
+## A simple static file server middleware. Using it with a raw http server
 
+      ecstatic = require('ecstatic')(STATIC_DIR)
+
+## Create HTTP static server
+
+      server = http.createServer(ecstatic)
+
+## Define API object providing integration vith dnode
+
+      PanelAPI =
+        dateTime: (s, cb) ->
+          cb(currentDateTime)
+        search: (s, cb) ->
+          switch s
+            when '/auth'
+              vkAuth = 'Depricated.'
+              msg = ['Authorization via Social Networks', vkAuth]
+              log(msg.join('\n'))
+              cb(msg.join('<br>'))
+            else
+              msg = "Unknown command: '#{s}'"
+              log(msg)
+              cb(msg)
+        auth: (_user, _pass, cb) ->
+          if typeof cb != 'function'
+            return
+          if _user? and _pass?
+            AuthUserJob = queue.create('AuthenticateUser',
+              title: "Authenticate user. Telegram UID: #{_user}.",
+              chatId: _user).save()
+            AuthUserJob.on 'complete', (result) ->
+              {user, pass, first_name, last_name} = result
+              if +_user is +user and _pass is pass
+                console.log "signed as: #{first_name} #{last_name}"
+                cb null, result
+              else
+                cb 'ACCESS DENIED'
+          else
+             cb 'ACCESS DENIED'
+
+## Start Dnode
+
+      server.listen PANEL_PORT, -> #  PANEL_HOST,
+        log("""
+        RPC module (dnode) successful started. Listen port: #{PANEL_PORT}.
+        Web: http://#{PANEL_HOST}:#{PANEL_PORT}
+        """)
+
+## Use dnode via shoe & Install endpoint
+
+      sock = shoe((stream) ->
+        d = dnode(PanelAPI)
+        d.pipe(stream).pipe(d)
+      )
+      sock.install(server, '/dnode')
 
 ## Create Level Dir folder
 
@@ -331,6 +404,39 @@ Kue job (task) processing that include the most part of bakcground work.
             else
               done(err)
 
+## Create *HtdocsStatic* Job
+
+      HtdocsStaticJob = queue.create('HtdocsStatic',
+        title: "Copy images from HTDOCS_DIR to STATIC_DIR",
+        STATIC_DIR:STATIC_DIR,
+        htdocsFaviconIco:htdocsFaviconIco,
+        staticFaviconIco:staticFaviconIco,
+        htdocsImg:htdocsImg
+        staticImg:staticImg).save()
+
+      HtdocsStaticJob.on 'complete', () ->
+
+### Create **HtdocsPug** Job
+
+        queue.create('HtdocsPug',
+          title: "Render (transform) pug template to html",
+          templatePug:templatePug,
+          indexHtml:indexHtml).delay(100).save()
+
+### Create **HtdocsStylus** Job
+
+        queue.create('HtdocsStylus',
+          title: "Render (transform) stylus template to css",
+          styleStyl:styleStyl,
+          styleCss:styleCss).delay(100).save()
+
+### Create **HtdocsBrowserify** Job
+
+        queue.create('HtdocsBrowserify',
+          title: "Render (transform) coffee template to js"
+          dashCoffeeMd:dashCoffeeMd,
+          bundleJs:bundleJs).delay(100).save()
+
 ### **Clean** job list on exit
 
       exitHandler = (options, err) =>
@@ -340,6 +446,8 @@ Kue job (task) processing that include the most part of bakcground work.
           process.exit()
           return
         if options.cleanup
+          removeSync STATIC_DIR
+          log "remove #{STATIC_DIR}"
           log 'cleanup'
 
 ### Exiting
@@ -563,3 +671,52 @@ Kue job (task) processing that include the most part of bakcground work.
           chatId: chatId
           text: text).save()
         done()
+
+## Queue **HtdocsStatic** handler
+
+      queue.process 'HtdocsStatic', (job, done) ->
+        {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
+        mkdirsSync STATIC_DIR
+        mkdirsSync "#{STATIC_DIR}/files"
+        log "make folder #{STATIC_DIR}"
+        copySync htdocsImg, staticImg
+        log "copy folder #{htdocsImg} -> #{staticImg}"
+        copySync htdocsFaviconIco, staticFaviconIco
+        log "copy file #{htdocsFaviconIco} -> #{staticFaviconIco}"
+        done()
+
+### Queue **HtdocsPug** handler
+
+      queue.process 'HtdocsPug', (job, done) ->
+        {templatePug, indexHtml} = job.data
+        writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
+        log "render file #{templatePug} -> #{indexHtml}"
+        done()
+
+### Queue **HtdocsStylus** handler
+
+      queue.process 'HtdocsStylus', (job, done) ->
+        {styleStyl, styleCss} = job.data
+        handler = (err, css) ->
+          if err then throw err
+          writeFileSync styleCss, css
+          log "render file #{styleStyl} -> #{styleCss}"
+        content = readFileSync(styleStyl, {encoding:'utf8'})
+        stylus.render(content, handler)
+        done()
+
+### Queue **HtdocsBrowserify** handler
+
+      queue.process 'HtdocsBrowserify', (job, done) ->
+        {dashCoffeeMd, bundleJs} = job.data
+        bundle = browserify
+          extensions: ['.coffee.md']
+        bundle.transform coffeeify,
+          bare: false
+          header: false
+        bundle.add dashCoffeeMd
+        bundle.bundle (error, js) ->
+          throw error if error?
+          writeFileSync bundleJs, js
+          log "render file #{dashCoffeeMd} -> #{bundleJs}"
+          done()
