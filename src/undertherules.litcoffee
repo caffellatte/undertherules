@@ -209,6 +209,16 @@ Kue job (task) processing that include the most part of bakcground work.
 ## Define API object providing integration vith dnode
 
       PanelAPI =
+        sendCode: (s, cb) ->
+          {chatId, code, network} = s
+          log chatId, code, network
+          sendCodeJob = queue.create('sendCode',
+            title: "Send authorization code",
+            chatId: chatId,
+            code: code,
+            network:network).save()
+          sendCodeJob.on 'complete', (result) =>
+            cb(result)
         dateTime: (s, cb) ->
           cb(currentDateTime)
         search: (s, cb) ->
@@ -255,50 +265,6 @@ Kue job (task) processing that include the most part of bakcground work.
       )
       sock.install(server, '/dnode')
 
-## Create HTTP Server for Netwoks
-
-      NetworksServer = http.createServer (req, res) ->
-        parts = url.parse(req.url, true)
-        {code, state} = parts.query
-        if code and state
-          [first, ..., last] = state.split(',')
-          switch first
-            when 'vk'
-              chatId = last
-              console.log(chatId)
-              vkUrl  = 'https://oauth.vk.com/access_token?'
-              vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
-              vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-              vkUrl +=  "code=#{code}"
-              request vkUrl, (error, response, body) ->
-                if !error and response.statusCode == 200
-                  console.log body
-                  {access_token, expires_in,user_id,email} = JSON.parse(body)
-                  queue.create('SaveTokens',
-                    title: "Send support text. Telegram UID: #{chatId}."
-                    chatId: chatId,
-                    access_token: access_token,
-                    expires_in: expires_in,
-                    user_id: user_id,
-                    email: email
-                    first: first).save()
-                  # Seve to db
-                  # res.end(body)
-                  res.writeHead(302, {'Location': 'http://t.me/UnderTheRulesBot'})
-                  res.end()
-            else
-              res.end(error)
-        else
-          {error, error_description} = parts.query
-          res.end("#{error}. #{error_description}")
-
-      NetworksServer.listen VK_REDIRECT_PORT*1, VK_REDIRECT_HOST, ->
-        log("""
-        Netwoks module successful started. Listen port: #{VK_REDIRECT_PORT}.
-        Web: http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}
-        """)
-
-
 ## Create Level Dir folder
 
       ensureDirSync LEVEL_DIR
@@ -308,6 +274,28 @@ Kue job (task) processing that include the most part of bakcground work.
       users   = levelgraph(level(LEVEL_DIR + '/users'))
       tokens  = levelgraph(level(LEVEL_DIR + '/tokens'))
       history = levelgraph(level(LEVEL_DIR + '/history'))
+
+###  Queue **SendCode** process
+
+      queue.process 'sendCode', (job, done) ->
+        {code, chatId, network} = job.data
+        vkUrl  = 'https://oauth.vk.com/access_token?'
+        vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
+        vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+        vkUrl +=  "code=#{code}"
+        request vkUrl, (error, response, body) ->
+          if !error and response.statusCode == 200
+            console.log body
+            {access_token, expires_in,user_id,email} = JSON.parse(body)
+            queue.create('SaveTokens',
+              title: "Send support text. Telegram UID: #{chatId}."
+              chatId: chatId,
+              access_token: access_token,
+              expires_in: expires_in,
+              user_id: user_id,
+              email: email
+              network: network).save()
+            done()
 
 ###  Queue **CreateUser** process
 
@@ -483,7 +471,6 @@ Kue job (task) processing that include the most part of bakcground work.
       while i < numCPUs
         cluster.fork()
         i++
-
     else
 
 ### Queue **coffeelint** handler

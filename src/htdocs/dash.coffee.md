@@ -2,10 +2,11 @@
 
 ## Import NPM modules
 
-    shoe     = require 'shoe'
-    dnode    = require 'dnode'
-    domready = require 'domready'
-    {parse}  = require 'url'
+    shoe        = require 'shoe'
+    dnode       = require 'dnode'
+    domready    = require 'domready'
+    {parse}     = require 'url'
+    querystring = require 'querystring'
 
 ## Class Interface
 
@@ -38,11 +39,22 @@
         @watch.onclick = @displayCli
         @line.onkeypress = @onkeypressCli
 
-### *Authorization*
+### *Authorization* & **Social Networks**
 
         Dnode.on 'remote', (remote) =>
           @remote = remote
           {query} = parse(window.location.href)
+          {code, state} = querystring.parse query
+          if code and state
+            [first, ..., last] = state.split(',')
+            switch first
+              when 'vk'
+                sendCodeData =
+                  network:first
+                  code:code
+                  chatId:last
+                @remote.sendCode sendCodeData, (s) ->
+                  console.log s
           user = @readCookie 'user' || query.replace('_s=', '').split(':')[0]
           pass = @readCookie 'pass' || query.replace('_s=', '').split(':')[1]
           if query? and '_s' in query
