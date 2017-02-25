@@ -25,29 +25,6 @@ Coffee-script both on server & client sides. Current state: `development`.
 | RPC system  | Dnode | Asynchronous socket service via sockjs |
 | Clustering tool | Node Foreman | Manager for Procfile-based applications |
 
-### Kue
-
-| Section | **queue.process**  | **level-graph schema** | **Process name** |  
-| ------- |------------------- |----------------------- |----------------- |
-|         |   coffeelint       |                        |  queue           |
-|         |   CreateUser       |                        |  level           |
-|         |   CreateSession    |                        |  level           |
-|         |   AuthenticateUser |                        |  level           |
-|         |   start            |                        |  telegram        |
-|         |   panel            |                        |  telegram        |
-|         |   support          |                        |  telegram        |
-|         |   sendMessage      |                        |  telegram        |
-|         |   HtdocsStatic     |                        |  panel           |
-|         |   HtdocsPug        |                        |  panel           |
-|         |   HtdocsStylus     |                        |  panel           |
-|         |   HtdocsBrowserify |                        |  panel           |
-|         |                    |                        |  networks        |
-
-### Dnode
-
-| Section | Endpoint |
-
-
 ## Installation
 
 ### .env

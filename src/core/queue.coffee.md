@@ -106,7 +106,6 @@ Kue job (task) processing that include the most part of bakcground work.
     class TelegramController extends TelegramBaseController
       constructor: () ->
       startHandler: ($) ->
-        log $
         queue.create('start',
           title: "Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
           chatId: $.message.chat.id
@@ -156,6 +155,38 @@ Kue job (task) processing that include the most part of bakcground work.
 
     queue = kue.createQueue()
 
+## Create Telegram instance interface
+
+    tg = new TelegramBot.Telegram TELEGRAM_TOKEN,
+      workers: 1
+      webAdmin:
+        port: BOT_PANEL_PORT,
+        host: BOT_PANEL_HOST
+
+## Telegram onMaster (Queue process handlers)
+
+    tg.onMaster () ->
+
+### Queue 'sendMessage' process
+
+      queue.process 'sendMessage', (job, done) ->
+        {chatId, text} = job.data
+        if !chatId? or !text?
+          return Error("Error! [sendMessage] Faild to send messsage.")
+        tg.api.sendMessage chatId, text
+        done()
+
+      log '\nTelegram: http://t.me/UnderTheRulesBot'
+
+## Telegram Bot Router
+
+    tg.router
+      .when new TextCommand('start', 'startCommand'), new TelegramController()
+      .when new TextCommand('login', 'panelCommand'), new TelegramController()
+      .when new TextCommand('about', 'aboutCommand'), new TelegramController()
+      .when new TextCommand('auth',  'authCommand'),  new TelegramController()
+      .when new TextCommand('help',  'helpCommand'),  new TelegramController()
+      .otherwise new OtherwiseController()
 
 ## Cluster Master
 
@@ -164,39 +195,6 @@ Kue job (task) processing that include the most part of bakcground work.
 ## Define link tokenizer
 
       tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
-
-## Create Telegram instance interface
-
-      tg = new TelegramBot.Telegram TELEGRAM_TOKEN,
-        workers: 1
-        webAdmin:
-          port: BOT_PANEL_PORT,
-          host: BOT_PANEL_HOST
-
-## Telegram onMaster (Queue process handlers)
-
-      tg.onMaster () ->
-
-### Queue 'sendMessage' process
-
-        queue.process 'sendMessage', (job, done) ->
-          {chatId, text} = job.data
-          if !chatId? or !text?
-            return Error("Error! [sendMessage] Faild to send messsage.")
-          tg.api.sendMessage chatId, text
-          done()
-
-      log '\nTelegram: http://t.me/UnderTheRulesBot'
-
-## Telegram Bot Router
-
-      tg.router
-        .when new TextCommand('start', 'startCommand'), new TelegramController()
-        .when new TextCommand('login', 'panelCommand'), new TelegramController()
-        .when new TextCommand('about', 'aboutCommand'), new TelegramController()
-        .when new TextCommand('auth',  'authCommand'),  new TelegramController()
-        .when new TextCommand('help',  'helpCommand'),  new TelegramController()
-        .otherwise new OtherwiseController()
 
 ## Start Kue
 
