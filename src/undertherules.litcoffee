@@ -39,7 +39,7 @@ Kue job (task) processing that include the most part of bakcground work.
     {KUE_PORT, PANEL_PORT, PANEL_HOST} = process.env
     {CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR} = process.env
     {VK_SCOPE, VK_REDIRECT_HOST, VK_REDIRECT_PORT} = process.env
-    {VK_CLIENT_ID, VK_DISPLAY, VK_VERSION, VK_CLIENT_SECRET} = process.env
+    {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
 
 ## File & Folders Structure
 
@@ -523,7 +523,7 @@ Kue job (task) processing that include the most part of bakcground work.
         handler = (err, css) ->
           if err then throw err
           writeFileSync styleCss, css
-          log "\t #{styleCss}"
+          log "\t#{styleCss}"
         content = readFileSync(styleStyl, {encoding:'utf8'})
         stylus.render(content, handler)
         done()

@@ -13,7 +13,10 @@ telegrambot.litcoffee
 
 ## Environment virables
 
+
+    {VK_SCOPE, VK_REDIRECT_HOST, VK_REDIRECT_PORT} = process.env
     {BOT_PANEL_HOST, BOT_PANEL_PORT, TELEGRAM_TOKEN} = process.env
+    {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
