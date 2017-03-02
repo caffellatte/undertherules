@@ -66,6 +66,7 @@ Run application with Node Foreman:
 
 ## Links
 
+- [Telegram messenger CLI](https://github.com/vysheng/tg) - Command-line interface for Telegram. Uses readline interface
 - [Dnode](https://www.npmjs.com/package/dnode)
 - [Node Foreman](https://www.npmjs.com/package/foreman)
 - [Markdown Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)

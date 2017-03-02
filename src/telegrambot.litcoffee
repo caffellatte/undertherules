@@ -34,7 +34,7 @@ telegrambot.litcoffee
       Flexible environment for social network analysis (SNA).
       Software provides full-cycle of retrieving and subsequent
       processing data from the social networks.
-      Usage: /help. Contacts: /about. Dashboard: /login.'''
+      Usage: /help. Contacts: /about. Tokens: /auth. Dashboard: /login.'''
     aboutText = '''
       Undertherules, MIT license
       Copyright (c) 2016 Mikhail G. Lutsenko

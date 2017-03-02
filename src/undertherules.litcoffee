@@ -64,6 +64,167 @@ Kue job (task) processing that include the most part of bakcground work.
 
     tokenizer = new natural.RegexpTokenizer({pattern: /(https?:\/\/[^\s]+)/g})
 
+UnderTheRules
+-------------
+
+    class UnderTheRules
+      @browserify: (job, done) ->
+        {dashCoffeeMd, bundleJs} = job.data
+        bundle = browserify
+          extensions: ['.coffee.md']
+        bundle.transform coffeeify,
+          bare: false
+          header: false
+        bundle.add dashCoffeeMd
+        bundle.bundle (error, js) ->
+          throw error if error?
+          writeFileSync bundleJs, js
+          done()
+      @coffeelint: (job, done) ->
+        {files} = job.data
+        command = 'coffeelint ' + "#{files.join(' ')}"
+        exec command, (err, stdout, stderr) ->
+          console.log(command)
+          console.log(stdout, stderr)
+          done()
+      @mediaAnalyzer: (job, done) ->
+            {chatId, href, host, path} = job.data
+            GetTokensJob = queue.create('GetTokens',
+              title: 'Get Tokens',
+              chatId: chatId).save()
+            GetTokensJob.on 'complete', (result) ->
+              {access_token} = JSON.parse result
+              if access_token
+                params =
+                  access_token: access_token
+                  offset: 0
+                  count: 100
+                  extended: 0
+                  filter: 'all'
+                  v: VK_VERSION
+                if 'id' in path
+                  params.owner_id = path[3..path.length]
+                else
+                  params.domain = path[1..path.length]
+                vkMediaScraperJob = queue.create('vkMediaScraper',
+                  title: "mediaScraper Telegram UID: #{chatId}.",
+                  chatId: chatId,
+                  method: 'wall.get',
+                  params: params,
+                  items: []).save()
+                done()
+              else
+                done('Error! Can`t find access_token.')
+      @mediaChecker: (job, done) ->
+        {chatId, text} = job.data
+        rawLinks = tokenizer.tokenize(text)
+        if rawLinks.length < 1
+          queue.create('sendMessage',
+            title: "mediaChecker Telegram UID: #{chatId}."
+            chatId: chatId
+            text: 'Unknown command. List of commands: /help.').save()
+        rawLinks.forEach (item) ->
+          {href, host, path} = url.parse(item)
+          switch host
+            when 'vk.com'
+              if path
+                queue.create('mediaAnalyzer',
+                  title: "Analyze Media #{href}",
+                  chatId: chatId,
+                  href: href,
+                  host: host,
+                  path: path).save()
+          done()
+      @vkMediaScraper: (job, done) ->
+        {chatId, method, params, items} = job.data
+        requestUrl = "https://api.vk.com/method/#{method}?#{querystring.stringify(params)}"
+        request requestUrl, (error, response, body) =>
+          if not error and response.statusCode is 200
+            body = JSON.parse(body)
+            if (body.response.count - params.offset) > 0
+              params.offset += 100
+              items = items.concat(body.response.items)
+              vkMediaScraperJob = queue.create('vkMediaScraper',
+                title: "mediaScraper Telegram UID: #{chatId}.",
+                chatId: chatId,
+                method: 'wall.get',
+                params: params,
+                items: items).save()
+            else
+              vkWallStaticJob = queue.create('vkWallStatic',
+                title: "vkWallStatic Telegram UID: #{chatId}.",
+                chatId: chatId,
+                name: (params.domain || params.user_id),
+                items: items).save()
+              vkWallStaticJob.on 'complete', (result) =>
+                queue.create('sendDocument',
+                  title: "vkWallStaticJob Telegram UID: #{chatId}.",
+                  chatId: chatId,
+                  filePath: result).save()
+                done()
+          else
+            done(error)
+        done()
+      @vkWallStatic: (job, done) ->
+        {chatId, name, items} = job.data
+        filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
+        fs.writeFileSync filename, "id;link;from_id;owner_id;date;post_type;comments;likes;reposts\n"
+        [first, ..., last] = items
+        rows = ''
+        for item in items
+          {id,from_id,owner_id,date,post_type,comments,likes,reposts} = item
+          rows += "#{id};https://vk.com/wall#{owner_id}_#{id};#{from_id};#{owner_id};#{new Date(date*1000)};#{post_type};#{comments.count};#{likes.count};#{reposts.count}\n"
+          if id is last.id
+            fs.appendFileSync filename, rows
+            done(null, filename)
+      @panel: (job, done) ->
+        {chatId, text} = job.data
+        if !chatId? or !text?
+          return done(new Error("Error! at panelHandler. Faild to send text."))
+        queue.create('CreateSession',
+          title: "Create new session. Telegram UID: #{chatId}.",
+          chatId: chatId,
+          text: "#{text}\n\n").save()
+        done()
+      @pugRender: (job, done) ->
+        {templatePug, indexHtml} = job.data
+        writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
+        done()
+      @start: (job, done) ->
+        {chatId, text, chat} = job.data
+        if !chatId? or !text? or !chat?
+          return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
+        queue.create('CreateUser',
+          title: "Create new profile. Telegram UID: #{chatId}.",
+          chat: chat,
+          chatId: chatId,
+          text: "#{text}\n\n").save()
+        done()
+      @static: (job, done) ->
+        {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
+        mkdirsSync STATIC_DIR
+        mkdirsSync "#{STATIC_DIR}/files"
+        copySync htdocsImg, staticImg
+        copySync htdocsFaviconIco, staticFaviconIco
+        done()
+      @support: (job, done) ->
+        {chatId, text} = job.data
+        if !chatId? or !text?
+          return done(new Error("Support Handler Error.\nUID: #{chatId}\Text: #{text}"))
+        queue.create('sendMessage',
+          title: "Send support text. Telegram UID: #{chatId}."
+          chatId: chatId
+          text: text).save()
+        done()
+      @stylusRender: (job, done) ->
+        {styleStyl, styleCss} = job.data
+        handler = (err, css) ->
+          if err then throw err
+          writeFileSync styleCss, css
+        content = readFileSync(styleStyl, {encoding:'utf8'})
+        stylus.render(content, handler)
+        done()
+
 ## Cluster Master
 
     if cluster.isMaster
@@ -274,9 +435,9 @@ Kue job (task) processing that include the most part of bakcground work.
             else
               done(err)
 
-## Create *HtdocsStatic* Job
+## Create *static* Job
 
-      HtdocsStaticJob = queue.create('HtdocsStatic',
+      staticJob = queue.create('static',
         title: "Copy images from HTDOCS_DIR to STATIC_DIR",
         STATIC_DIR:STATIC_DIR,
         htdocsFaviconIco:htdocsFaviconIco,
@@ -284,25 +445,25 @@ Kue job (task) processing that include the most part of bakcground work.
         htdocsImg:htdocsImg
         staticImg:staticImg).save()
 
-      HtdocsStaticJob.on 'complete', () ->
+      staticJob.on 'complete', () ->
 
-### Create **HtdocsPug** Job
+### Create **pugRender** Job
 
-        queue.create('HtdocsPug',
+        queue.create('pugRender',
           title: "Render (transform) pug template to html",
           templatePug:templatePug,
           indexHtml:indexHtml).delay(100).save()
 
-### Create **HtdocsStylus** Job
+### Create **stylusRender** Job
 
-        queue.create('HtdocsStylus',
+        queue.create('stylusRender',
           title: "Render (transform) stylus template to css",
           styleStyl:styleStyl,
           styleCss:styleCss).delay(100).save()
 
-### Create **HtdocsBrowserify** Job
+### Create **browserify** Job
 
-        queue.create('HtdocsBrowserify',
+        queue.create('browserify',
           title: "Render (transform) coffee template to js"
           dashCoffeeMd:dashCoffeeMd,
           bundleJs:bundleJs).delay(100).save()
@@ -342,195 +503,15 @@ Kue job (task) processing that include the most part of bakcground work.
         i++
     else
 
-### Queue **coffeelint** handler
-
-      queue.process 'coffeelint', (job, done) ->
-        {files} = job.data
-        command = 'coffeelint ' + "#{files.join(' ')}"
-        exec command, (err, stdout, stderr) ->
-          console.log(command)
-          console.log(stdout, stderr)
-          done()
-
-### Queue **vkWallStatic** process
-
-      queue.process 'vkWallStatic', (job, done) ->
-        {chatId, name, items} = job.data
-        filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
-        fs.writeFileSync filename, "id;link;from_id;owner_id;date;post_type;comments;likes;reposts\n"
-        [first, ..., last] = items
-        rows = ''
-        for item in items
-          {id,from_id,owner_id,date,post_type,comments,likes,reposts} = item
-          rows += "#{id};https://vk.com/wall#{owner_id}_#{id};#{from_id};#{owner_id};#{new Date(date*1000)};#{post_type};#{comments.count};#{likes.count};#{reposts.count}\n"
-          if id is last.id
-            fs.appendFileSync filename, rows
-            done(null, filename)
-
-### Queue **vkMediaScraper** process
-
-      queue.process 'vkMediaScraper', (job, done) ->
-        {chatId, method, params, items} = job.data
-        requestUrl = "https://api.vk.com/method/#{method}?#{querystring.stringify(params)}"
-        request requestUrl, (error, response, body) =>
-          if not error and response.statusCode is 200
-            body = JSON.parse(body)
-            if (body.response.count - params.offset) > 0
-              params.offset += 100
-              items = items.concat(body.response.items)
-              vkMediaScraperJob = queue.create('vkMediaScraper',
-                title: "mediaScraper Telegram UID: #{chatId}.",
-                chatId: chatId,
-                method: 'wall.get',
-                params: params,
-                items: items).save()
-            else
-              vkWallStaticJob = queue.create('vkWallStatic',
-                title: "vkWallStatic Telegram UID: #{chatId}.",
-                chatId: chatId,
-                name: (params.domain || params.user_id),
-                items: items).save()
-              vkWallStaticJob.on 'complete', (result) =>
-                queue.create('sendDocument',
-                  title: "vkWallStaticJob Telegram UID: #{chatId}.",
-                  chatId: chatId,
-                  filePath: result).save()
-                done()
-          else
-            done(error)
-        done()
-
-### Queue **mediaAnalyzer** process
-
-      queue.process 'mediaAnalyzer', (job, done) ->
-        {chatId, href, host, path} = job.data
-        GetTokensJob = queue.create('GetTokens',
-          title: 'Get Tokens',
-          chatId: chatId).save()
-        GetTokensJob.on 'complete', (result) ->
-          {access_token} = JSON.parse result
-          if access_token
-            params =
-              access_token: access_token
-              offset: 0
-              count: 100
-              extended: 0
-              filter: 'all'
-              v: VK_VERSION
-            if 'id' in path
-              params.owner_id = path[3..path.length]
-            else
-              params.domain = path[1..path.length]
-            vkMediaScraperJob = queue.create('vkMediaScraper',
-              title: "mediaScraper Telegram UID: #{chatId}.",
-              chatId: chatId,
-              method: 'wall.get',
-              params: params,
-              items: []).save()
-            done()
-          else
-            done('Error! Can`t find access_token.')
-
-### Queue **mediaChecker** process
-
-      queue.process 'mediaChecker', (job, done) ->
-        {chatId, text} = job.data
-        rawLinks = tokenizer.tokenize(text)
-        if rawLinks.length < 1
-          queue.create('sendMessage',
-            title: "mediaChecker Telegram UID: #{chatId}."
-            chatId: chatId
-            text: 'Unknown command. List of commands: /help.').save()
-
-        rawLinks.forEach (item) ->
-          {href, host, path} = url.parse(item)
-          switch host
-            when 'vk.com'
-              if path
-                queue.create('mediaAnalyzer',
-                  title: "Analyze Media #{href}",
-                  chatId: chatId,
-                  href: href,
-                  host: host,
-                  path: path).save()
-          done()
-
-###  Queue **start** process
-
-      queue.process 'start', (job, done) ->
-        {chatId, text, chat} = job.data
-        if !chatId? or !text? or !chat?
-          return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
-        queue.create('CreateUser',
-          title: "Create new profile. Telegram UID: #{chatId}.",
-          chat: chat,
-          chatId: chatId,
-          text: "#{text}\n\n").save()
-        done()
-
-###  Queue **panel** process
-
-      queue.process 'panel', (job, done) ->
-        {chatId, text} = job.data
-        if !chatId? or !text?
-          return done(new Error("Error! at panelHandler. Faild to send text."))
-        queue.create('CreateSession',
-          title: "Create new session. Telegram UID: #{chatId}.",
-          chatId: chatId,
-          text: "#{text}\n\n").save()
-        done()
-
-###  Queue **support** process
-
-      queue.process 'support', (job, done) ->
-        {chatId, text} = job.data
-        if !chatId? or !text?
-          return done(new Error("Support Handler Error.\nUID: #{chatId}\Text: #{text}"))
-        queue.create('sendMessage',
-          title: "Send support text. Telegram UID: #{chatId}."
-          chatId: chatId
-          text: text).save()
-        done()
-
-## Queue **HtdocsStatic** handler
-
-      queue.process 'HtdocsStatic', (job, done) ->
-        {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
-        mkdirsSync STATIC_DIR
-        mkdirsSync "#{STATIC_DIR}/files"
-        copySync htdocsImg, staticImg
-        copySync htdocsFaviconIco, staticFaviconIco
-        done()
-
-### Queue **HtdocsPug** handler
-
-      queue.process 'HtdocsPug', (job, done) ->
-        {templatePug, indexHtml} = job.data
-        writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
-        done()
-
-### Queue **HtdocsStylus** handler
-
-      queue.process 'HtdocsStylus', (job, done) ->
-        {styleStyl, styleCss} = job.data
-        handler = (err, css) ->
-          if err then throw err
-          writeFileSync styleCss, css
-        content = readFileSync(styleStyl, {encoding:'utf8'})
-        stylus.render(content, handler)
-        done()
-
-### Queue **HtdocsBrowserify** handler
-
-      queue.process 'HtdocsBrowserify', (job, done) ->
-        {dashCoffeeMd, bundleJs} = job.data
-        bundle = browserify
-          extensions: ['.coffee.md']
-        bundle.transform coffeeify,
-          bare: false
-          header: false
-        bundle.add dashCoffeeMd
-        bundle.bundle (error, js) ->
-          throw error if error?
-          writeFileSync bundleJs, js
-          done()
+      queue.process 'coffeelint', UnderTheRules.coffeelint
+      queue.process 'vkWallStatic', UnderTheRules.vkWallStatic
+      queue.process 'vkMediaScraper', UnderTheRules.vkMediaScraper
+      queue.process 'mediaAnalyzer', UnderTheRules.mediaAnalyzer
+      queue.process 'mediaChecker', UnderTheRules.mediaChecker
+      queue.process 'start', UnderTheRules.start
+      queue.process 'panel', UnderTheRules.panel
+      queue.process 'support', UnderTheRules.support
+      queue.process 'static', UnderTheRules.static
+      queue.process 'pugRender', UnderTheRules.pugRender
+      queue.process 'stylusRender', UnderTheRules.stylusRender
+      queue.process 'browserify', UnderTheRules.browserify
