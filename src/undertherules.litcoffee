@@ -27,7 +27,6 @@ Kue job (task) processing that include the most part of bakcground work.
 
 ## Extract functions & constans from modules
 
-    {log}  = console
     {exec} = require 'child_process'
     {stringify, parse} = JSON
     {writeFileSync, readFileSync} = fs
@@ -73,19 +72,17 @@ Kue job (task) processing that include the most part of bakcground work.
 
       kue.app.set('title', 'Under The Rules')
       kue.app.listen KUE_PORT, ->
-        log("\tKue: http://0.0.0.0:#{KUE_PORT}.")
+        console.log("\tKue: http://0.0.0.0:#{KUE_PORT}.")
         kue.Job.rangeByState 'complete', 0, 100000, 'asc', (err, jobs) ->
           jobs.forEach (job) ->
             job.remove ->
               return
 
-## A simple static file server middleware. Using it with a raw http server
+## Ecstatic is a simple static file server middleware. Create a HTTP static server.  Create Level Dir folder
 
       ecstatic = require('ecstatic')(STATIC_DIR)
-
-## Create HTTP static server
-
-      server = http.createServer(ecstatic)
+      server   = http.createServer(ecstatic)
+      ensureDirSync LEVEL_DIR
 
 ## Define API object providing integration vith dnode
 
@@ -106,11 +103,11 @@ Kue job (task) processing that include the most part of bakcground work.
             when '/auth'
               vkAuth = 'Depricated.'
               msg = ['Authorization via Social Networks', vkAuth]
-              log(msg.join('\n'))
+              console.log(msg.join('\n'))
               cb(msg.join('<br>'))
             else
               msg = "Unknown command: '#{s}'"
-              log(msg)
+              console.log(msg)
               cb(msg)
         auth: (_user, _pass, cb) ->
           if typeof cb != 'function'
@@ -129,28 +126,21 @@ Kue job (task) processing that include the most part of bakcground work.
           else
              cb 'ACCESS DENIED'
 
-## Start Dnode
+## Starting Dnode. Using dnode via shoe & Install endpoint
 
       server.listen PANEL_PORT, -> #  PANEL_HOST,
-        log("\tDnode: http://#{PANEL_HOST}:#{PANEL_PORT}")
-
-## Use dnode via shoe & Install endpoint
-
-      sock = shoe((stream) ->
+        console.log("\tDnode: http://#{PANEL_HOST}:#{PANEL_PORT}")
+      sock = shoe (stream) ->
         d = dnode(PanelAPI)
         d.pipe(stream).pipe(d)
-      )
       sock.install(server, '/dnode')
-
-## Create Level Dir folder
-
-      ensureDirSync LEVEL_DIR
 
 ## Level. Initializing users, tokens, history
 
-      users   = levelgraph(level(LEVEL_DIR + '/users'))
-      tokens  = levelgraph(level(LEVEL_DIR + '/tokens'))
-      history = levelgraph(level(LEVEL_DIR + '/history'))
+      log    = level(LEVEL_DIR + '/log', {type:'json'})
+      user  = level(LEVEL_DIR + '/user', {type:'json'})
+      token = level(LEVEL_DIR + '/token', {type:'json'})
+      # history = levelgraph(level(LEVEL_DIR + '/history'))
 
 ###  Queue **SendCode** process
 
@@ -178,7 +168,7 @@ Kue job (task) processing that include the most part of bakcground work.
       queue.process 'CreateUser', (job, done) ->
         {chatId, chat, text} = job.data
         {id, type, username, first_name, last_name} = chat
-        triple =
+        value =
           subject: id
           predicate: 'start'
           object: +new Date()
@@ -186,40 +176,34 @@ Kue job (task) processing that include the most part of bakcground work.
           username: username
           first_name: first_name
           last_name: last_name
-        users.get { subject: id, predicate: 'start' }, (err, list) =>
+        user.get id, (err, list) =>
           if err
-            done(err)
-          else
-            switch list.length
-              when 1
+            user.put id, value, (err) ->
+              if not err
                 job = queue.create('sendMessage',
-                  title: "Profile already exists. ID: #{chatId}."
+                  title: "Create new profile. ID: #{chatId}."
                   chatId: chatId
-                  text: "#{text}Profile already exists ID: #{chatId}").save()
-                done()
-              when 0
-                users.put triple, (err) ->
-                  if not err
-                    job = queue.create('sendMessage',
-                      title: "Create new profile. ID: #{chatId}."
-                      chatId: chatId
-                      text: "#{text}Create new profile. ID: #{chatId}.").save()
-                    done()
-                  else
-                    done(err)
+                  text: "#{text}Create new profile. ID: #{chatId}.").save()
+                done(null, err)
               else
-                done('err')
+                done(err)
+          else
+            job = queue.create('sendMessage',
+              title: "Profile already exists. ID: #{chatId}."
+              chatId: chatId
+              text: "#{text}Profile already exists ID: #{chatId}").save()
+            done()
 
 ###  Queue **CreateSession** process
 
       queue.process 'CreateSession', (job, done) ->
         {chatId, text} = job.data
-        users.get { subject: chatId, predicate: 'start' }, (err, list) ->
+        user.get chatId, (err, list) ->
           if err
             done(err)
           else
-            if list.length is 1
-              {predicate, object, type, username, first_name, last_name} = list[0]
+            if list
+              {predicate, object, type, username, first_name, last_name} = list
               pass = crypto.createHash('md5').update("#{object}").digest("hex")
               job = queue.create('sendMessage',
                 title: "Generate access link. Telegram UID: #{chatId}."
@@ -233,12 +217,12 @@ Kue job (task) processing that include the most part of bakcground work.
 
       queue.process 'AuthenticateUser', (job, done) ->
         {chatId} = job.data
-        users.get { subject: chatId, predicate: 'start' }, (err, list) ->
+        user.get chatId, (err, list) ->
           if err
             done(err)
           else
             if list.length is 1
-              {subject, object, type, username, first_name, last_name} = list[0]
+              {subject, object, type, username, first_name, last_name} = list
               pass = crypto.createHash('md5').update("#{object}").digest("hex")
               done(null,
                 user:subject,
@@ -255,28 +239,33 @@ Kue job (task) processing that include the most part of bakcground work.
 
       queue.process 'SaveTokens', (job, done) ->
         {access_token, expires_in,user_id,email,chatId,first} = job.data
-        triple =
+        value =
           subject: chatId
           predicate: expires_in
           object: user_id
           network: first
           email: email
           access_token: access_token
-        tokens.put triple, (err) ->
+        token.put chatId, JSON.stringify(value), (err) ->
           if err
             done(new Error("Error! SaveTokens. #{triple}"))
           else
-            queue.create('sendMessage',
-            title: "Send support text. Telegram UID: #{chatId}."
-            chatId: chatId
-            text: "Token saved.").save()
-          done()
+            token.get chatId, (err, list) ->
+              if err
+                done err
+              else
+                console.log list
+                queue.create('sendMessage',
+                  title: "Send support text. Telegram UID: #{chatId}."
+                  chatId: chatId
+                  text: "Token saved.").save()
+                done()
 
 ### Queue **GetTokens** process
 
       queue.process 'GetTokens', (job, done) ->
         {chatId} = job.data
-        tokens.get { subject: chatId }, (err, list) =>
+        token.get chatId, (err, list) =>
           if err
             done(err)
           else
@@ -318,17 +307,23 @@ Kue job (task) processing that include the most part of bakcground work.
           dashCoffeeMd:dashCoffeeMd,
           bundleJs:bundleJs).delay(100).save()
 
+### Create **coffeelint** Job
+
+        queue.create('coffeelint',
+          title: "Link coffee files"
+          files:[undertherulesLit]).delay(100).save() # dashCoffeeMd
+
 ### **Clean** job list on exit
 
       exitHandler = (options, err) =>
         if err
-          log err.stack
+          console.log err.stack
         if options.exit
           process.exit()
           return
         if options.cleanup
           removeSync STATIC_DIR
-          log "remove #{STATIC_DIR}"
+          console.log "remove #{STATIC_DIR}"
 
 ### Exiting
 - *do something when app is closing*
@@ -353,8 +348,8 @@ Kue job (task) processing that include the most part of bakcground work.
         {files} = job.data
         command = 'coffeelint ' + "#{files.join(' ')}"
         exec command, (err, stdout, stderr) ->
-          log(command)
-          log(stdout, stderr)
+          console.log(command)
+          console.log(stdout, stderr)
           done()
 
 ### Queue **vkWallStatic** process
@@ -413,7 +408,7 @@ Kue job (task) processing that include the most part of bakcground work.
           title: 'Get Tokens',
           chatId: chatId).save()
         GetTokensJob.on 'complete', (result) ->
-          {access_token} = result[0]
+          {access_token} = JSON.parse result
           if access_token
             params =
               access_token: access_token
@@ -432,7 +427,9 @@ Kue job (task) processing that include the most part of bakcground work.
               method: 'wall.get',
               params: params,
               items: []).save()
-        done()
+            done()
+          else
+            done('Error! Can`t find access_token.')
 
 ### Queue **mediaChecker** process
 
@@ -501,11 +498,8 @@ Kue job (task) processing that include the most part of bakcground work.
         {STATIC_DIR ,htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
         mkdirsSync STATIC_DIR
         mkdirsSync "#{STATIC_DIR}/files"
-        log "\t#{STATIC_DIR}"
         copySync htdocsImg, staticImg
-        log "\t#{staticImg}"
         copySync htdocsFaviconIco, staticFaviconIco
-        log "\t#{staticFaviconIco}"
         done()
 
 ### Queue **HtdocsPug** handler
@@ -513,7 +507,6 @@ Kue job (task) processing that include the most part of bakcground work.
       queue.process 'HtdocsPug', (job, done) ->
         {templatePug, indexHtml} = job.data
         writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
-        log "\t#{indexHtml}"
         done()
 
 ### Queue **HtdocsStylus** handler
@@ -523,7 +516,6 @@ Kue job (task) processing that include the most part of bakcground work.
         handler = (err, css) ->
           if err then throw err
           writeFileSync styleCss, css
-          log "\t#{styleCss}"
         content = readFileSync(styleStyl, {encoding:'utf8'})
         stylus.render(content, handler)
         done()
@@ -541,5 +533,4 @@ Kue job (task) processing that include the most part of bakcground work.
         bundle.bundle (error, js) ->
           throw error if error?
           writeFileSync bundleJs, js
-          log "\t#{bundleJs}"
           done()
