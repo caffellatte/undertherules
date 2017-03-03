@@ -3,7 +3,8 @@ undertherules.litcoffee
 
 Kue job (task) processing that include the most part of bakcground work.
 
-## Import NPM modules
+Modules
+-------
 
     _           = require 'lodash'
     fs          = require 'fs-extra'
@@ -25,14 +26,16 @@ Kue job (task) processing that include the most part of bakcground work.
     levelgraph  = require 'levelgraph'
     querystring = require 'querystring'
 
-## Extract functions & constans from modules
+Functions
+---------
 
     {exec} = require 'child_process'
     {stringify, parse} = JSON
     {writeFileSync, readFileSync} = fs
     {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
 
-## Environment virables
+Environment
+-----------
 
     numCPUs = require('os').cpus().length
     {KUE_PORT, PANEL_PORT, PANEL_HOST} = process.env
@@ -40,7 +43,8 @@ Kue job (task) processing that include the most part of bakcground work.
     {VK_SCOPE, VK_REDIRECT_HOST, VK_REDIRECT_PORT} = process.env
     {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
 
-## File & Folders Structure
+Files
+-----
 
     dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
     undertherulesLit  = "#{CORE_DIR}/undertherules.litcoffee"
@@ -55,6 +59,107 @@ Kue job (task) processing that include the most part of bakcground work.
     styleStyl         = "#{HTDOCS_DIR}/style.styl"
     dashCoffeeMd      = "#{HTDOCS_DIR}/dash.coffee.md"
     coffeeFiles       = [dashCoffeeMd, undertherulesLit]
+
+Level
+-----
+
+    class Level
+      @authenticate: (job, done) ->
+        {chatId} = job.data
+        user.get chatId, (err, list) ->
+          if err
+            done(err)
+          else
+            if list.length is 1
+              {subject, object, type, username, first_name, last_name} = list
+              pass = crypto.createHash('md5').update("#{object}").digest("hex")
+              done(null,
+                user:subject,
+                pass:pass,
+                first_name:first_name,
+                last_name:last_name,
+                username:username,
+                type:username
+              )
+            else
+              done(err)
+      @getTokens: (job, done) ->
+        {chatId} = job.data
+        token.get chatId, (err, list) =>
+          console.log list
+          if err
+            done(err)
+          else
+            if list
+              done(null, list)
+            else
+              done(err)
+      @create: (job, done) ->
+        {chatId, chat, text} = job.data
+        {id, type, username, first_name, last_name} = chat
+        value =
+          subject: id
+          predicate: 'start'
+          object: +new Date()
+          type: type
+          username: username
+          first_name: first_name
+          last_name: last_name
+        user.get id, (err, list) =>
+          if err
+            user.put id, value, (err) ->
+              if not err
+                job = queue.create('sendMessage',
+                  title: "Create new profile. ID: #{chatId}."
+                  chatId: chatId
+                  text: "#{text}Create new profile. ID: #{chatId}.").save()
+                done(null, err)
+              else
+                done(err)
+          else
+            job = queue.create('sendMessage',
+              title: "Profile already exists. ID: #{chatId}."
+              chatId: chatId
+              text: "#{text}Profile already exists ID: #{chatId}").save()
+            done()
+      @saveTokens: (job, done) ->
+        {access_token, expires_in,user_id,email,chatId,first} = job.data
+        value =
+          subject: chatId
+          predicate: expires_in
+          object: user_id
+          network: first
+          email: email
+          access_token: access_token
+        token.put chatId, JSON.stringify(value), (err) ->
+          if err
+            done(new Error("Error! SaveTokens. #{triple}"))
+          else
+            token.get chatId, (err, list) ->
+              if err
+                done err
+              else
+                queue.create('sendMessage',
+                  title: "Send support text. Telegram UID: #{chatId}."
+                  chatId: chatId
+                  text: "Token saved.").save()
+                done()
+      @session: (job, done) ->
+        {chatId, text} = job.data
+        user.get chatId, (err, list) ->
+          if err
+            done(err)
+          else
+            if list
+              {predicate, object, type, username, first_name, last_name} = list
+              pass = crypto.createHash('md5').update("#{object}").digest("hex")
+              job = queue.create('sendMessage',
+                title: "Generate access link. Telegram UID: #{chatId}."
+                chatId: chatId
+                text: text + "http://#{PANEL_HOST}:#{PANEL_PORT}/?_s=#{chatId}:#{pass}").save()
+              done()
+            else
+              done('err')
 
 ## Create a queue instance for creating jobs, providing us access to redis etc
 
@@ -89,7 +194,7 @@ UnderTheRules
           done()
       @mediaAnalyzer: (job, done) ->
             {chatId, href, host, path} = job.data
-            GetTokensJob = queue.create('GetTokens',
+            GetTokensJob = queue.create('getTokens',
               title: 'Get Tokens',
               chatId: chatId).save()
             GetTokensJob.on 'complete', (result) ->
@@ -181,11 +286,29 @@ UnderTheRules
         {chatId, text} = job.data
         if !chatId? or !text?
           return done(new Error("Error! at panelHandler. Faild to send text."))
-        queue.create('CreateSession',
+        queue.create('session',
           title: "Create new session. Telegram UID: #{chatId}.",
           chatId: chatId,
           text: "#{text}\n\n").save()
         done()
+      @sendCode: (job, done) ->
+        {code, chatId, network} = job.data
+        vkUrl  = 'https://oauth.vk.com/access_token?'
+        vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
+        vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
+        vkUrl +=  "code=#{code}"
+        request vkUrl, (error, response, body) ->
+          if !error and response.statusCode == 200
+            {access_token, expires_in,user_id,email} = JSON.parse(body)
+            queue.create('saveTokens',
+              title: "Send support text. Telegram UID: #{chatId}."
+              chatId: chatId,
+              access_token: access_token,
+              expires_in: expires_in,
+              user_id: user_id,
+              email: email
+              network: network).save()
+            done()
       @pugRender: (job, done) ->
         {templatePug, indexHtml} = job.data
         writeFileSync indexHtml, pug.renderFile(templatePug, pretty:true)
@@ -194,7 +317,7 @@ UnderTheRules
         {chatId, text, chat} = job.data
         if !chatId? or !text? or !chat?
           return done(new Error("Start Handler Error.\nUID: #{chatId}\nText: #{text}\nData: #{chat}"))
-        queue.create('CreateUser',
+        queue.create('create',
           title: "Create new profile. Telegram UID: #{chatId}.",
           chat: chat,
           chatId: chatId,
@@ -274,7 +397,7 @@ UnderTheRules
           if typeof cb != 'function'
             return
           if _user? and _pass?
-            AuthUserJob = queue.create('AuthenticateUser',
+            AuthUserJob = queue.create('authenticate',
               title: "Authenticate user. Telegram UID: #{_user}.",
               chatId: _user).save()
             AuthUserJob.on 'complete', (result) ->
@@ -298,144 +421,20 @@ UnderTheRules
 
 ## Level. Initializing users, tokens, history
 
-      log    = level(LEVEL_DIR + '/log', {type:'json'})
-      user  = level(LEVEL_DIR + '/user', {type:'json'})
-      token = level(LEVEL_DIR + '/token', {type:'json'})
       # history = levelgraph(level(LEVEL_DIR + '/history'))
 
-###  Queue **SendCode** process
+      log = level(LEVEL_DIR + '/log', {type:'json'})
+      user = level(LEVEL_DIR + '/user', {type:'json'})
+      token = level(LEVEL_DIR + '/token', {type:'json'})
+      queue.process 'create', Level.create
+      queue.process 'session', Level.session
+      queue.process 'authenticate', Level.authenticate
+      queue.process 'saveTokens', Level.saveTokens
+      queue.process 'getTokens', Level.getTokens
 
-      queue.process 'sendCode', (job, done) ->
-        {code, chatId, network} = job.data
-        vkUrl  = 'https://oauth.vk.com/access_token?'
-        vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
-        vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-        vkUrl +=  "code=#{code}"
-        request vkUrl, (error, response, body) ->
-          if !error and response.statusCode == 200
-            {access_token, expires_in,user_id,email} = JSON.parse(body)
-            queue.create('SaveTokens',
-              title: "Send support text. Telegram UID: #{chatId}."
-              chatId: chatId,
-              access_token: access_token,
-              expires_in: expires_in,
-              user_id: user_id,
-              email: email
-              network: network).save()
-            done()
-
-###  Queue **CreateUser** process
-
-      queue.process 'CreateUser', (job, done) ->
-        {chatId, chat, text} = job.data
-        {id, type, username, first_name, last_name} = chat
-        value =
-          subject: id
-          predicate: 'start'
-          object: +new Date()
-          type: type
-          username: username
-          first_name: first_name
-          last_name: last_name
-        user.get id, (err, list) =>
-          if err
-            user.put id, value, (err) ->
-              if not err
-                job = queue.create('sendMessage',
-                  title: "Create new profile. ID: #{chatId}."
-                  chatId: chatId
-                  text: "#{text}Create new profile. ID: #{chatId}.").save()
-                done(null, err)
-              else
-                done(err)
-          else
-            job = queue.create('sendMessage',
-              title: "Profile already exists. ID: #{chatId}."
-              chatId: chatId
-              text: "#{text}Profile already exists ID: #{chatId}").save()
-            done()
-
-###  Queue **CreateSession** process
-
-      queue.process 'CreateSession', (job, done) ->
-        {chatId, text} = job.data
-        user.get chatId, (err, list) ->
-          if err
-            done(err)
-          else
-            if list
-              {predicate, object, type, username, first_name, last_name} = list
-              pass = crypto.createHash('md5').update("#{object}").digest("hex")
-              job = queue.create('sendMessage',
-                title: "Generate access link. Telegram UID: #{chatId}."
-                chatId: chatId
-                text: text + "http://#{PANEL_HOST}:#{PANEL_PORT}/?_s=#{chatId}:#{pass}").save()
-              done()
-            else
-              done('err')
-
-###  Queue **AuthenticateUser** process
-
-      queue.process 'AuthenticateUser', (job, done) ->
-        {chatId} = job.data
-        user.get chatId, (err, list) ->
-          if err
-            done(err)
-          else
-            if list.length is 1
-              {subject, object, type, username, first_name, last_name} = list
-              pass = crypto.createHash('md5').update("#{object}").digest("hex")
-              done(null,
-                user:subject,
-                pass:pass,
-                first_name:first_name,
-                last_name:last_name,
-                username:username,
-                type:username
-              )
-            else
-              done(err)
-
-### Queue **SaveTokens** process
-
-      queue.process 'SaveTokens', (job, done) ->
-        {access_token, expires_in,user_id,email,chatId,first} = job.data
-        value =
-          subject: chatId
-          predicate: expires_in
-          object: user_id
-          network: first
-          email: email
-          access_token: access_token
-        token.put chatId, JSON.stringify(value), (err) ->
-          if err
-            done(new Error("Error! SaveTokens. #{triple}"))
-          else
-            token.get chatId, (err, list) ->
-              if err
-                done err
-              else
-                console.log list
-                queue.create('sendMessage',
-                  title: "Send support text. Telegram UID: #{chatId}."
-                  chatId: chatId
-                  text: "Token saved.").save()
-                done()
-
-### Queue **GetTokens** process
-
-      queue.process 'GetTokens', (job, done) ->
-        {chatId} = job.data
-        token.get chatId, (err, list) =>
-          if err
-            done(err)
-          else
-            if list
-              done(null, list)
-            else
-              done(err)
-
-## Create *static* Job
+### Create Jobs
+When staticJob.on 'complete': create following jobs:
+**static**, **pugRender**, **stylusRender**, **browserify**, **coffeelint**
 
       staticJob = queue.create('static',
         title: "Copy images from HTDOCS_DIR to STATIC_DIR",
@@ -444,32 +443,19 @@ UnderTheRules
         staticFaviconIco:staticFaviconIco,
         htdocsImg:htdocsImg
         staticImg:staticImg).save()
-
       staticJob.on 'complete', () ->
-
-### Create **pugRender** Job
-
         queue.create('pugRender',
           title: "Render (transform) pug template to html",
           templatePug:templatePug,
           indexHtml:indexHtml).delay(100).save()
-
-### Create **stylusRender** Job
-
         queue.create('stylusRender',
           title: "Render (transform) stylus template to css",
           styleStyl:styleStyl,
           styleCss:styleCss).delay(100).save()
-
-### Create **browserify** Job
-
         queue.create('browserify',
           title: "Render (transform) coffee template to js"
           dashCoffeeMd:dashCoffeeMd,
           bundleJs:bundleJs).delay(100).save()
-
-### Create **coffeelint** Job
-
         queue.create('coffeelint',
           title: "Link coffee files"
           files:[undertherulesLit]).delay(100).save() # dashCoffeeMd
@@ -486,10 +472,7 @@ UnderTheRules
           removeSync STATIC_DIR
           console.log "remove #{STATIC_DIR}"
 
-### Exiting
-- *do something when app is closing*
-- *catches ctrl+c event*
-- *catches uncaught exceptions*
+### 1) *do something when app is closing* 2) *ctrl+c event* 3) *uncaught exceptions*
 
       process.on 'exit', exitHandler.bind(null, cleanup: true)
       process.on 'SIGINT', exitHandler.bind(null, exit: true)
@@ -503,6 +486,7 @@ UnderTheRules
         i++
     else
 
+      queue.process 'sendCode', UnderTheRules.sendCode
       queue.process 'coffeelint', UnderTheRules.coffeelint
       queue.process 'vkWallStatic', UnderTheRules.vkWallStatic
       queue.process 'vkMediaScraper', UnderTheRules.vkMediaScraper
