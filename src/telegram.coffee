@@ -105,7 +105,7 @@ tg.router
 
 # Master
 tg.onMaster () ->
-  console.log '\tBot: http://t.me/UnderTheRulesBot'
+  console.log 'Bot: http://t.me/UnderTheRulesBot'
 
 ## sendMessage
   queue.process 'sendMessage', (job, done) ->

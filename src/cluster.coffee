@@ -23,7 +23,6 @@ querystring = require 'querystring'
 
 # Functions
 {exec} = require 'child_process'
-{stringify, parse} = JSON
 {writeFileSync, readFileSync} = fs
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
 
@@ -56,6 +55,7 @@ class UnderTheRules
   @tokenizer: new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
   @dnodeAuth: (_user, _pass, cb) ->
     if typeof cb isnt 'function'
+      console.log "cb isnt 'function'"
       return
     if _user? and _pass?
       AuthUserJob = queue.create('authenticate',
@@ -88,19 +88,16 @@ class UnderTheRules
       if err
         done(err)
       else
-        if list.length is 1
-          {subject, object, type, username, first_name, last_name} = list
-          pass = crypto.createHash('md5').update("#{object}").digest("hex")
-          done(null,
-            user:subject,
-            pass:pass,
-            first_name:first_name,
-            last_name:last_name,
-            username:username,
-            type:username
-          )
-        else
-          done(err)
+        {id, created, type, username, first_name, last_name} = JSON.parse list
+        pass = crypto.createHash('md5').update("#{created}").digest("hex")
+        done(null,
+          user:id,
+          pass:pass,
+          first_name:first_name,
+          last_name:last_name,
+          username:username,
+          type:type
+        )
   @getTokens: (job, done) ->
     {chatId} = job.data
     token.get chatId, (err, list) =>
@@ -115,36 +112,35 @@ class UnderTheRules
     {chatId, chat, text} = job.data
     {id, type, username, first_name, last_name} = chat
     value =
-      subject: id
-      predicate: 'start'
-      object: +new Date()
+      id: id
+      created: +new Date()
       type: type
       username: username
       first_name: first_name
       last_name: last_name
     user.get id, (err, list) =>
       if err
-        user.put id, value, (err) ->
+        user.put id, JSON.stringify(value), (err) ->
           if not err
             job = queue.create('sendMessage',
-              title: "Create new profile. ID: #{chatId}."
+              title: "Create new profile. ID: #{id}."
               chatId: chatId
-              text: "#{text}Create new profile. ID: #{chatId}.").save()
-            done(null, err)
+              text: "#{text}Create new profile. ID: #{id}").save()
+            done(null, list)
           else
             done(err)
       else
         job = queue.create('sendMessage',
-          title: "Profile already exists. ID: #{chatId}."
+          title: "Profile already exists. ID: #{id}."
           chatId: chatId
-          text: "#{text}Profile already exists ID: #{chatId}").save()
+          text: "#{text}Profile already exists ID: #{id}").save()
         done()
   @saveTokens: (job, done) ->
-    {access_token, expires_in,user_id,email,chatId,first} = job.data
+    {access_token, expires_in, user_id, email, chatId, first} = job.data
     value =
-      subject: chatId
-      predicate: expires_in
-      object: user_id
+      id: chatId
+      expires_in: expires_in
+      user_id: user_id
       network: first
       email: email
       access_token: access_token
@@ -168,8 +164,8 @@ class UnderTheRules
         done(err)
       else
         if list
-          {predicate, object, type, username, first_name, last_name} = list
-          pass = crypto.createHash('md5').update("#{object}").digest("hex")
+          {id, created, type, username, first_name, last_name} = JSON.parse list
+          pass = crypto.createHash('md5').update("#{created}").digest("hex")
           job = queue.create('sendMessage',
             title: "Generate access link. Telegram UID: #{chatId}."
             chatId: chatId
@@ -359,7 +355,7 @@ if cluster.isMaster
 ## Kue
   kue.app.set('title', 'Under The Rules')
   kue.app.listen KUE_PORT, ->
-    console.log("\tKue: http://0.0.0.0:#{KUE_PORT}.")
+    console.log("Kue: http://0.0.0.0:#{KUE_PORT}.")
     kue.Job.rangeByState 'complete', 0, 100000, 'asc', (err, jobs) ->
       jobs.forEach (job) ->
         job.remove -> return
@@ -371,7 +367,7 @@ if cluster.isMaster
 
 ## Starting Dnode. Using dnode via shoe & Install endpoint
   server.listen PANEL_PORT, -> #  PANEL_HOST,
-    console.log("\tDnode: http://#{PANEL_HOST}:#{PANEL_PORT}")
+    console.log("Dnode: http://#{PANEL_HOST}:#{PANEL_PORT}")
   sock = shoe (stream) ->
     d = dnode # Define API object providing integration vith dnode
       sendCode: UnderTheRules.dnodeSendCode

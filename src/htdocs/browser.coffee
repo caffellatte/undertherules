@@ -1,16 +1,16 @@
 # browser.coffee
 
-#Modules
+# Modules
 shoe        = require 'shoe'
 dnode       = require 'dnode'
 domready    = require 'domready'
-{parse}     = require 'url'
 querystring = require 'querystring'
 
+# Functions
+{parse} = require 'url'
+
 # Interface
-
 class Interface
-
   constructor: (Dnode) ->
     @main       = document.getElementById('main')
     @input      = document.getElementById('input')
@@ -19,24 +19,18 @@ class Interface
     @cli        = document.getElementById('cli')
     @bar        = document.getElementById('bar')
     @logoImg    = document.getElementById('logoImg')
-    @watchImg   = document.getElementById('watchImg')
     @logo       = document.getElementById('logo')
-    @watch      = document.getElementById('watch')
-    @profile    = document.getElementById('profile')
-    @profileImg = document.getElementById('profileImg')
-
     @cliFlag    = 'none'
     @authFlag   = 'none'
     window.addEventListener 'resize', @onresize
-    @watch.onclick = @displayCli
+    @logo.onclick = @displayCli
     @line.onkeypress = @onkeypressCli
 
 ## *Authorization* & **Social Networks**
-
     Dnode.on 'remote', (remote) =>
       @remote = remote
       {query} = parse(window.location.href)
-      {code, state} = querystring.parse query
+      {code, state, _s} = querystring.parse query
       if code and state
         [first, ..., last] = state.split(',')
         switch first
@@ -47,24 +41,20 @@ class Interface
               chatId:last
             @remote.sendCode sendCodeData, (s) ->
               console.log s
+      if _s?
+        credentials = query.replace('_s=', '').split(':')
+        @createCookie 'user', credentials[0], 1
+        @createCookie 'pass', credentials[1], 1
       user = @readCookie 'user' || query.replace('_s=', '').split(':')[0]
       pass = @readCookie 'pass' || query.replace('_s=', '').split(':')[1]
-      if query? and '_s' in query
-        if credentials.length is 2
-          credentials = query.replace('_s=', '').split(':')
-          @createCookie 'user', credentials[0], 1
-          @createCookie 'pass', credentials[1], 1
-        else
-          @unauthorized()
-          return Dnode.end()
       if user and pass
         @remote.auth user, pass, (err, session) =>
           if err
             console.log err
+            @unauthorized()
             return Dnode.end()
           else
             @authorized session
-      # else
 
   onresize: =>
     @size =
@@ -96,13 +86,6 @@ class Interface
     # background-position
     mainStyle += "background-position: center #{barHeight + 2}px;"
     @main.setAttribute('style', mainStyle)
-    # watchImg
-    watchImgSize = barHeight - 3
-    watchImgStyle = "height:#{watchImgSize}px;width:#{watchImgSize}px;"
-    @watchImg.setAttribute('style', watchImgStyle)
-    # watch
-    watchSize = barHeight - 1
-    @watch.setAttribute('style', "height:#{watchSize}px;width:#{watchSize}px;")
     # logoImg
     logoImgSize = barHeight - 3
     logoImgStyle = "height:#{logoImgSize}px;width:#{logoImgSize}px;"
@@ -110,13 +93,6 @@ class Interface
     # logo
     logoSize = barHeight - 3
     @logo.setAttribute('style', "height:#{logoSize}px;width:#{logoSize}px;padding-left:3px;padding-top:1px;")
-    # profileImg
-    profileImgSize = barHeight - 7
-    profileImgStyle = "height:#{profileImgSize}px;width:#{profileImgSize}px;padding-top:3px;"
-    @profileImg.setAttribute('style', profileImgStyle)
-    # profile
-    profileSize = barHeight - 1
-    @profile.setAttribute('style', "height:#{profileSize}px;width:#{profileSize}px;")
 
   onkeypressCli: (event) =>
     {charCode} = event
