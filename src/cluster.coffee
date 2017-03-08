@@ -246,6 +246,13 @@ class UnderTheRules
     request requestUrl, (error, response, body) =>
       if not error and response.statusCode is 200
         body = JSON.parse(body)
+        if items.length is 0
+          queue.create('sendMessage',
+            title: "vkMediaScraper Telegram UID: #{chatId}.",
+            chatId: chatId,
+            text: 'Empty Wall').save()
+          done()
+          return
         if (body.response.count - params.offset) > 0
           params.offset += 100
           items = items.concat(body.response.items)
