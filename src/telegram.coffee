@@ -1,17 +1,18 @@
 # telegram.coffee
 
 # Modules
-kue         = require 'kue'
-TelegramBot = require 'telegram-node-bot'
+kue         = require('kue')
+TelegramBot = require('telegram-node-bot')
 
 # Functions
 {TelegramBaseController, TextCommand, InputFile} = TelegramBot
 
 # Environment
-{VK_SCOPE, VK_REDIRECT_HOST, VK_REDIRECT_PORT} = process.env
+{VK_SCOPE, PANEL_HOST, PANEL_PORT} = process.env
 {BOT_PANEL_HOST, BOT_PANEL_PORT, TELEGRAM_TOKEN} = process.env
 {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
-
+VK_REDIRECT_HOST = PANEL_HOST
+VK_REDIRECT_PORT = PANEL_PORT
 # Queue
 queue = kue.createQueue()
 
@@ -32,93 +33,112 @@ aboutText = '''
   Copyright (c) 2016 Mikhail G. Lutsenko
   Email: m.g.lutsenko@gmail.com
   Telegram: @ltsnk'''
-authText = """
-  Authorization via Social Networks"""
+authText = '''
+  Authorization via Social Networks'''
 
 # Getter
 Function::property = (prop, desc) ->
-  Object.defineProperty @prototype, prop, desc
+  Object.defineProperty(@prototype, prop, desc)
 
 # TelegramController
 class TelegramController extends TelegramBaseController
-  constructor: () ->
+  constructor: ->
+    return
   startHandler: ($) ->
-    queue.create('start',
-      title: "Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: startText
-      chat: $.message.chat).save()
+    queue.create('start', {
+      title:"Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:startText
+      chat:$.message.chat
+    }).save()
   panelHandler: ($) ->
-    queue.create('panel',
-      title: "Telegram PanelController. Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: 'Link allows you to access the dashboad.\nIt will expire after every 24 hours.').save()
+    text = 'Link allows you to access the dashboad.\n'
+    text += 'It will expire after every 24 hours.'
+    queue.create('panel', {
+      title:"Telegram PanelController. Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:text
+    }).save()
   aboutHandler: ($) ->
-    queue.create('support',
-      title: "Telegram AboutController. Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: aboutText).save()
+    queue.create('support', {
+      title:"Telegram AboutController. Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:aboutText
+    }).save()
   helpHandler: ($) ->
-    queue.create('support',
-      title: "Telegram HelpController. Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: helpText).save()
+    queue.create('support', {
+      title:"Telegram HelpController. Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:helpText
+    }).save()
   authHandler: ($) ->
-    vkAuthLnk = "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&v=#{VK_VERSION}&state=vk"
+    vkAuthLnk = "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&"
+    vkAuthLnk += "display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}"
+    vkAuthLnk += ":#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&"
+    vkAuthLnk += "v=#{VK_VERSION}&state=vk"
     text = "#{authText}\n#{vkAuthLnk},#{$.message.chat.id}"
-    queue.create('support',
-      title: "Telegram AuthController. Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: text).save()
-  @property 'routes',
-    get: ->
-      'authCommand':  'authHandler'
-      'helpCommand':  'helpHandler'
-      'aboutCommand': 'aboutHandler'
-      'startCommand': 'startHandler'
-      'panelCommand': 'panelHandler'
+    queue.create('support', {
+      title:"Telegram AuthController. Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:text
+    }).save()
+  @property('routes', {
+    get: -> {
+      'authCommand':'authHandler'
+      'helpCommand':'helpHandler'
+      'aboutCommand':'aboutHandler'
+      'startCommand':'startHandler'
+      'panelCommand':'panelHandler'
+      }
+    }
+  )
 
 # OtherwiseController
 class OtherwiseController extends TelegramBaseController
-  constructor: () ->
-  handle: ($) ->
-    queue.create('mediaChecker',
-      title: "mediaChecker Telegram UID: #{$.message.chat.id}."
-      chatId: $.message.chat.id
-      text: $.message.text).save()
+  constructor: ->
+    return
+  handle:($) ->
+    queue.create('mediaChecker', {
+      title:"mediaChecker Telegram UID: #{$.message.chat.id}."
+      chatId:$.message.chat.id
+      text:$.message.text
+    }).save()
 
 # Instance
-tg = new TelegramBot.Telegram TELEGRAM_TOKEN,
+tg = new TelegramBot.Telegram(TELEGRAM_TOKEN, {
   workers: 2
-  webAdmin:
+  webAdmin: {
     port: BOT_PANEL_PORT,
     host: BOT_PANEL_HOST
+  }
+})
 
 # Router
 tg.router
-  .when new TextCommand('start', 'startCommand'), new TelegramController()
-  .when new TextCommand('login', 'panelCommand'), new TelegramController()
-  .when new TextCommand('about', 'aboutCommand'), new TelegramController()
-  .when new TextCommand('auth',  'authCommand'),  new TelegramController()
-  .when new TextCommand('help',  'helpCommand'),  new TelegramController()
-  .otherwise new OtherwiseController()
+  .when(new TextCommand('start', 'startCommand'), new TelegramController())
+  .when(new TextCommand('login', 'panelCommand'), new TelegramController())
+  .when(new TextCommand('about', 'aboutCommand'), new TelegramController())
+  .when(new TextCommand('auth',  'authCommand'),  new TelegramController())
+  .when(new TextCommand('help',  'helpCommand'),  new TelegramController())
+  .otherwise(new OtherwiseController())
 
 # Master
-tg.onMaster () ->
-  console.log 'Bot: http://t.me/UnderTheRulesBot'
-
+tg.onMaster( ->
+  console.log('Bot: http://t.me/UnderTheRulesBot')
 ## sendMessage
-  queue.process 'sendMessage', (job, done) ->
+  queue.process('sendMessage', (job, done) ->
     {chatId, text} = job.data
-    if !chatId? or !text?
-      return Error("Error! [sendMessage]")
-    tg.api.sendMessage chatId, text
+    if not chatId? or not text?
+      return Error('Error at sending Message')
+    tg.api.sendMessage(chatId, text)
     done()
-
+  )
 ## sendDocument
-  queue.process 'sendDocument', (job, done) ->
+  queue.process('sendDocument', (job, done) ->
     {chatId, filePath} = job.data
-    if !chatId? or !filePath?
-      return Error("Error! [sendDocument]")
-    tg.api.sendDocument chatId, InputFile.byFilePath(filePath)
+    if not chatId? or not filePath?
+      return Error('Error at sending Document!')
+    tg.api.sendDocument(chatId, InputFile.byFilePath(filePath))
     done()
+  )
+)
