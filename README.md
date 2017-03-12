@@ -43,10 +43,14 @@ Coffee-script both on server & client sides. Current state: `development`.
     telegram: coffee ./src/core/telegram.coffee.md
     panel: coffee ./src/core/panel.coffee.md
 
-### Create new user (optional)
+### Prepare OS (Debian)
 
     useradd --home-dir /home/bot --create-home --shell /bin/bash bot
-    usermod -g staff bot
+    passwd bot
+    usermod -g staff bot **optional**
+    apt-get update
+    apt-get upgrade -y
+    apt-get install -y curl build-essential python htop mc tree whois
 
 ### Install Node.js global packages
 
@@ -73,7 +77,8 @@ Run application with Node Foreman:
 - [Classes](https://arcturo.github.io/library/coffeescript/03_classes.html) from The Little Book on CoffeeScript
 - Why Invoke [apply](http://stackoverflow.com/questions/5936604/) instead of calling function directly?
 - How to install [node and npm](https://gist.github.com/isaacs/579814) without sudo
-- Config [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
+- [Redis](https://redis.io/topics/quickstart) on Debian (quick start)
+- [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
 - [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript
 
 ## Contribution
