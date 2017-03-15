@@ -37,7 +37,6 @@ VK_REDIRECT_PORT = PANEL_PORT
 # Files
 browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
 clusterCoffee     = "#{CORE_DIR}/cluster.coffee"
-telegramCoffee    = "#{CORE_DIR}/telegram.coffee"
 staticImg         = "#{STATIC_DIR}/img"
 staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
 indexHtml         = "#{STATIC_DIR}/index.html"
@@ -472,7 +471,7 @@ if cluster.isMaster
     }).delay(100).save()
     queue.create('coffeelint', {
       title:'Link coffee files'
-      files:[clusterCoffee, browserCoffee, telegramCoffee]
+      files:[clusterCoffee, browserCoffee]
     }).delay(100).save() # browserCoffee
   )
 

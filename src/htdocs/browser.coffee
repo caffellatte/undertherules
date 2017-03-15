@@ -1,3 +1,151 @@
+# telegram.coffee
+
+# Modules
+# kue         = require('kue')
+# TelegramBot = require('telegram-node-bot')
+
+# Functions
+# {TelegramBaseController, TextCommand, InputFile} = TelegramBot
+
+# Environment
+# {VK_SCOPE, PANEL_HOST, PANEL_PORT} = process.env
+# {BOT_PANEL_HOST, BOT_PANEL_PORT, TELEGRAM_TOKEN} = process.env
+# {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
+# VK_REDIRECT_HOST = PANEL_HOST
+# VK_REDIRECT_PORT = PANEL_PORT
+# Queue
+# queue = kue.createQueue()
+
+# Texts
+# helpText = '''
+#   /help - List of commands
+#   /auth - Authorization links
+#   /start - Create user's profile
+#   /login - Log in to your dashboad
+#   /about - Feedback and complaints'''
+# startText = '''
+#   Flexible environment for social network analysis (SNA).
+#   Software provides full-cycle of retrieving and subsequent
+#   processing data from the social networks.
+#   Usage: /help. Contacts: /about. Tokens: /auth. Dashboard: /login.'''
+# aboutText = '''
+#   Undertherules, MIT license
+#   Copyright (c) 2016 Mikhail G. Lutsenko
+#   Email: m.g.lutsenko@gmail.com
+#   Telegram: @ltsnk'''
+# authText = '''
+#   Authorization via Social Networks'''
+
+# Getter
+# Function::property = (prop, desc) ->
+#   Object.defineProperty(@prototype, prop, desc)
+
+# TelegramController
+# class TelegramController extends TelegramBaseController
+#   constructor: ->
+#     return
+#   startHandler: ($) ->
+#     queue.create('start', {
+#       title:"Telegram Start Handler. Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:startText
+#       chat:$.message.chat
+#     }).save()
+#   panelHandler: ($) ->
+#     text = 'Link allows you to access the dashboad.\n'
+#     text += 'It will expire after every 24 hours.'
+#     queue.create('panel', {
+#       title:"Telegram PanelController. Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:text
+#     }).save()
+#   aboutHandler: ($) ->
+#     queue.create('support', {
+#       title:"Telegram AboutController. Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:aboutText
+#     }).save()
+#   helpHandler: ($) ->
+#     queue.create('support', {
+#       title:"Telegram HelpController. Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:helpText
+#     }).save()
+#   authHandler: ($) ->
+#     vkAuthLnk = "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&"
+#     vkAuthLnk += "display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}"
+#     vkAuthLnk += ":#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&"
+#     vkAuthLnk += "v=#{VK_VERSION}&state=vk"
+#     text = "#{authText}\n#{vkAuthLnk},#{$.message.chat.id}"
+#     queue.create('support', {
+#       title:"Telegram AuthController. Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:text
+#     }).save()
+#   @property('routes', {
+#     get: -> {
+#       'authCommand':'authHandler'
+#       'helpCommand':'helpHandler'
+#       'aboutCommand':'aboutHandler'
+#       'startCommand':'startHandler'
+#       'panelCommand':'panelHandler'
+#       }
+#     }
+#   )
+
+# OtherwiseController
+# class OtherwiseController extends TelegramBaseController
+#   constructor: ->
+#     return
+#   handle:($) ->
+#     queue.create('mediaChecker', {
+#       title:"mediaChecker Telegram UID: #{$.message.chat.id}."
+#       chatId:$.message.chat.id
+#       text:$.message.text
+#     }).save()
+
+# Instance
+# tg = new TelegramBot.Telegram(TELEGRAM_TOKEN, {
+#   workers: 2
+#   webAdmin: {
+#     port: BOT_PANEL_PORT,
+#     host: BOT_PANEL_HOST
+#   }
+# })
+
+# Router
+# tg.router
+#   .when(new TextCommand('start', 'startCommand'), new TelegramController())
+#   .when(new TextCommand('login', 'panelCommand'), new TelegramController())
+#   .when(new TextCommand('about', 'aboutCommand'), new TelegramController())
+#   .when(new TextCommand('auth',  'authCommand'),  new TelegramController())
+#   .when(new TextCommand('help',  'helpCommand'),  new TelegramController())
+#   .otherwise(new OtherwiseController())
+
+# Master
+# tg.onMaster( ->
+#   console.log('Bot: http://t.me/UnderTheRulesBot')
+## sendMessage
+  # queue.process('sendMessage', (job, done) ->
+  #   {chatId, text} = job.data
+  #   if not chatId? or not text?
+  #     return Error('Error at sending Message')
+  #   tg.api.sendMessage(chatId, text)
+  #   done()
+  # )
+## sendDocument
+#   queue.process('sendDocument', (job, done) ->
+#     {chatId, filePath} = job.data
+#     if not chatId? or not filePath?
+#       return Error('Error at sending Document!')
+#     tg.api.sendDocument(chatId, InputFile.byFilePath(filePath))
+#     done()
+#   )
+# )
+
+
+### ************************************************************************ ###
+
 # browser.coffee
 
 # Modules
@@ -22,10 +170,7 @@ class Interface
     @logo       = document.getElementById('logo')
     @cliFlag    = 'none'
     @authFlag   = 'none'
-    window.addEventListener('resize', @onresize)
-    @logo.onclick = @displayCli
     @line.onkeypress = @onkeypressCli
-
 ## *Authorization* & **Social Networks**
     Dnode.on('remote', (remote) =>
       @remote = remote
@@ -53,53 +198,11 @@ class Interface
         @remote.auth(user, pass, (err, session) =>
           if err
             console.log(err)
-            @unauthorized()
             return Dnode.end()
           else
             @authorized(session)
         )
     )
-
-  onresize: =>
-    @size = {
-      width:window.innerWidth # || document.body.clientWidth
-      height:window.innerHeight # || document.body.clientHeight
-      difWidth:window.innerWidth - document.body.clientWidth
-      difHeight:window.innerHeight - document.body.clientHeight
-    }
-    @grid()
-
-  grid: =>
-    # main
-    mainWidth  = @size.width - @size.difWidth
-    mainHeight = @size.height - @size.difWidth
-    mainStyle  = "width:#{mainWidth}px;height:#{mainHeight}px;"
-    @main.setAttribute('style', mainStyle)
-    # cli
-    mainDif = @main.offsetWidth - @main.clientWidth
-    cliWidth = @main.offsetWidth - mainDif
-    cliStyle = "display:#{@cliFlag};width:#{cliWidth}px;"
-    @cli.setAttribute('style', cliStyle)
-    # line
-    lineWidth = cliWidth - (2 * mainDif) - 13
-    lineStyle = "width: #{lineWidth}px;"
-    @line.setAttribute('style', lineStyle)
-    # bar
-    barHeight = mainHeight // 10
-    barStyle = "width:#{cliWidth}px;height:#{barHeight}px;"
-    @bar.setAttribute('style', barStyle)
-    # background-position
-    mainStyle += "background-position: center #{barHeight + 2}px;"
-    @main.setAttribute('style', mainStyle)
-    # logoImg
-    logoImgSize = barHeight - 3
-    logoImgStyle = "height:#{logoImgSize}px;width:#{logoImgSize}px;"
-    @logoImg.setAttribute('style', logoImgStyle)
-    # logo
-    logoSize = barHeight - 3
-    logoStyle = "height:#{logoSize}px;width:#{logoSize}px;"
-    logoStyle += 'padding-left:3px;padding-top:1px;'
-    @logo.setAttribute('style', logoStyle)
 
   onkeypressCli:(event) =>
     {charCode} = event
@@ -112,17 +215,6 @@ class Interface
       )
       return false
     return
-
-  displayCli: =>
-    if @cli.style.display is 'none'
-      @cliFlag = 'block'
-    else
-      @cliFlag = 'none'
-    @grid()
-    outputHeightDif = @size.difWidth + @bar.offsetHeight + @input.offsetHeight
-    outputHeight = @size.height - outputHeightDif
-    @output.setAttribute('style', "height:#{outputHeight}px;")
-    @line.focus() if @cliFlag is 'block'
 
   createCookie:(name, value, days) ->
     expires = ''
@@ -153,12 +245,6 @@ class Interface
   authorized:(session) ->
     @session = session
     console.log(@session)
-
-  unauthorized: ->
-    mainStyle = "display:#{@authFlag};"
-    @main.setAttribute('style', mainStyle)
-    window.location.href = 'http://t.me/UnderTheRulesBot'
-    console.log('unauthorized')
 
 
 

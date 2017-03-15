@@ -1,4 +1,4 @@
-# UTR-Sociometry
+# Under The Rules
 
 Flexible environment for social network analysis (SNA). Software provides
 full-cycle of retrieving and subsequent processing data from the social networks.
@@ -29,19 +29,27 @@ Coffee-script both on server & client sides. Current state: `development`.
 
 ### .env
 
-    KUE_PORT="8816"
-    LEVEL_PORT="9004"
-    PANEL_PORT="8294"
-    LEVEL_DIR=".db"
-    STATIC_DIR="static"
+    PANEL_HOST="****"
+    PANEL_PORT="****"
+    BOT_PANEL_HOST="****"
+    BOT_PANEL_PORT="****"
+    KUE_HOST="****"
+    KUE_PORT="****"
+    LEVEL_DIR="~/node_modules/undertherules/.db"
+    STATIC_DIR="~/node_modules/undertherules/static"
+    HTDOCS_DIR="~/node_modules/undertherules/src/htdocs"
+    CORE_DIR="~/node_modules/undertherules/src"
+    TELEGRAM_TOKEN="****"
+    VK_CLIENT_ID="5787387"
+    VK_CLIENT_SECRET="****"
+    VK_DISPLAY="mobile"
+    VK_SCOPE="friends,pages,wall,ads,offline,groups,stats,email,market"
+    VK_VERSION="5.62"
     TELEGRAM_TOKEN="****"
 
 ### Procfile
 
-    kue: coffee ./src/core/kue.coffee.md
-    level: coffee ./src/core/level.coffee.md
-    telegram: coffee ./src/core/telegram.coffee.md
-    panel: coffee ./src/core/panel.coffee.md
+    cluster: coffee ./src/cluster.coffee
 
 ### Prepare OS (Debian)
 
@@ -49,8 +57,8 @@ Coffee-script both on server & client sides. Current state: `development`.
     passwd bot
     usermod -g staff bot **optional**
     apt-get update
+    apt-get install -y curl build-essential python htop mc tree whois postfix mailutils
     apt-get upgrade -y
-    apt-get install -y curl build-essential python htop mc tree whois
 
 ### Install Node.js global packages
 
@@ -80,6 +88,7 @@ Run application with Node Foreman:
 - [Redis](https://redis.io/topics/quickstart) on Debian (quick start)
 - [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
 - [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript
+- [opendkim](https://wiki.debian.org/opendkim) Postfix and opendkim on Debian
 
 ## Contribution
 
