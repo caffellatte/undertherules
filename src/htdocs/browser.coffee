@@ -72,8 +72,8 @@
 #       text:helpText
 #     }).save()
 #   authHandler: ($) ->
-#     vkAuthLnk = "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&"
-#     vkAuthLnk += "display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}"
+#     vkAuthLnk= "vk: https://oauth.vk.com/authorize?client_id=#{VK_CLIENT_ID}&"
+#     vkAuthLnk+="display=#{VK_DISPLAY}&redirect_uri=http://#{VK_REDIRECT_HOST}"
 #     vkAuthLnk += ":#{VK_REDIRECT_PORT}/&scope=#{VK_SCOPE}&response_type=code&"
 #     vkAuthLnk += "v=#{VK_VERSION}&state=vk"
 #     text = "#{authText}\n#{vkAuthLnk},#{$.message.chat.id}"
@@ -192,8 +192,8 @@ class Interface
         credentials = query.replace('_s=', '').split(':')
         @createCookie('user', credentials[0], 1)
         @createCookie('pass', credentials[1], 1)
-      user = @readCookie('user') or query.replace('_s=', '').split(':')[0]
-      pass = @readCookie('pass') or query.replace('_s=', '').split(':')[1]
+      user = @readCookie('user') # or query.replace('_s=', '').split(':')[0]
+      pass = @readCookie('pass') # or query.replace('_s=', '').split(':')[1]
       if user and pass
         @remote.auth(user, pass, (err, session) =>
           if err
@@ -253,5 +253,4 @@ domready( ->
   Dnode  = dnode()
   Dnode.pipe(stream).pipe(Dnode)
   UI = new Interface(Dnode)
-  UI.onresize()
 )
