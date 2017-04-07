@@ -1,23 +1,44 @@
 body
-  background-color: #000
+  background-color #000
 
-#output
-    background-color #ececec
-    // overflow auto
+.content
+  box-sizing border-box
+  border-collapse separate
+  border groove white 1px
+  margin 0 auto
 
-.rep
-    background #fff
-    // display block
-    float left
-    padding 6px
+.command-line
+  font-size 14px
+  background #fff
+  text-align right
+  width 100%
+  margin 0
+  padding 0
+
+.resp
+  display inline-block
+  background #eee
+  float left
 
 .req
-    background #ccc
-    // display block
-    float right
-    padding 6px
+  display inline-block
+  background #ccc
+  float right
 
-#line
-    background #ccc
-    text-align right
-    // background #eee
+@media screen and (min-width: 600px)
+  .command-line
+    font-size 1.2em
+  .req
+    font-size 1.2em
+    padding 1.2em
+  .resp
+    font-size 1.2em
+    padding 1.2em
+
+@media screen and (min-width: 1024px)
+  .command-line
+    font-size 1.1em
+  .req
+    font-size 1.1em
+  .resp
+    font-size 1.1em

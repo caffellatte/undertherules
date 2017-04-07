@@ -1,3 +1,22 @@
+
+#
+# queue.process('sendMessage', (job, done) ->
+#   {chatId, text} = job.data
+#   if not chatId? or not text?
+#     return Error('Error at sending Message')
+#   tg.api.sendMessage(chatId, text)
+#   done()
+# )
+#   queue.process('sendDocument', (job, done) ->
+#     {chatId, filePath} = job.data
+#     if not chatId? or not filePath?
+#       return Error('Error at sending Document!')
+#     tg.api.sendDocument(chatId, InputFile.byFilePath(filePath))
+#     done()
+#   )
+
+
+
 # cluster.coffee
 
 # Modules
@@ -458,21 +477,21 @@ if cluster.isMaster
       title:'Render (transform) pug template to html',
       templatePug:templatePug,
       indexHtml:indexHtml
-    }).delay(100).save()
+    }).delay(10).save()
     queue.create('stylusRender', {
       title:'Render (transform) stylus template to css',
       styleStyl:styleStyl,
       styleCss:styleCss
-    }).delay(100).save()
+    }).delay(20).save()
     queue.create('browserify', {
       title:'Render (transform) coffee template to js',
       browserCoffee:browserCoffee,
       bundleJs:bundleJs
-    }).delay(100).save()
+    }).delay(30).save()
     queue.create('coffeelint', {
       title:'Link coffee files'
       files:[clusterCoffee, browserCoffee]
-    }).delay(100).save() # browserCoffee
+    }).delay(5).save() # browserCoffee
   )
 
 ## **Clean** job list on exit add to class

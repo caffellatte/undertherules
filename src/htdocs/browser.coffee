@@ -1,5 +1,13 @@
 # browser.coffee
 
+# Modules
+url         = require('url')
+shoe        = require('shoe')
+dnode       = require('dnode')
+request     = require('request')
+domready    = require('domready')
+querystring = require('querystring')
+
 # Texts
 helpText = '''
   /help - List of commands
@@ -19,63 +27,38 @@ aboutText = '''
 authText = '''
   Authorization via Social Networks'''
 
-# Modules
-shoe        = require('shoe')
-dnode       = require('dnode')
-domready    = require('domready')
-querystring = require('querystring')
-
-# Functions
-{parse} = require('url')
-
 # Interface
 class Interface
-  constructor:(Dnode) ->
-    @line       = document.getElementById('line')
-    @output     = document.getElementById('output')
-    @line.onkeypress = @onkeypressCli
 
-## *Authorization* & **Social Networks**
-    Dnode.on('remote', (remote) =>
-      @remote = remote
-      {query} = parse(window.location.href)
-      {code, state, _s} = querystring.parse(query)
-      if code and state
-        [first, ..., last] = state.split(',')
-        switch first
-          when 'vk'
-            sendCodeData = {
-              network:first
-              code:code
-              chatId:last
-            }
-            @remote.sendCode(sendCodeData, (s) ->
-              console.log(s)
-            )
-      if _s?
-        credentials = query.replace('_s=', '').split(':')
-        @createCookie('user', credentials[0], 1)
-        @createCookie('pass', credentials[1], 1)
-      user = @readCookie('user') # or query.replace('_s=', '').split(':')[0]
-      pass = @readCookie('pass') # or query.replace('_s=', '').split(':')[1]
-      if user and pass
-        @remote.auth(user, pass, (err, session) =>
-          if err
-            console.log(err)
-            return Dnode.end()
-          else
-            @authorized(session)
-        )
+  createJob:(options) ->
+    {type, title, params, attempts, priority} = options
+    jobOptions = {
+      type:type,
+      data:{
+        title:title,
+        params:params
+      },
+      options:{
+        attempts:attempts or 5,
+        priority:priority or 'normal'
+      }
+    }
+    postOptions = {
+      url:'http://0.0.0.0:8816/job',
+      form:jobOptions
+    }
+    request.post(postOptions, (err, httpResponse, body) ->
+      console.log(body)
     )
 
-  onkeypressCli:(event) =>
+  inputReturn:(event) =>
     {charCode} = event
     if charCode is 13
       {value} = @line
-      @output.innerHTML += "<code class='req'>#{value}</code><br><br>"
+      @output.innerHTML += "<li class='req'>#{value}</li>"
       @line.value = ''
       @remote.search(value, (s) =>
-        @output.innerHTML += "<code class='rep'>#{s}</code><br><br>"
+        @output.innerHTML += "<li class='resp'>#{s}</li>"
       )
       return false
     return
@@ -109,6 +92,43 @@ class Interface
   authorized:(session) ->
     @session = session
     console.log(@session)
+
+  remoteHandler:(remote) =>
+    @remote = remote
+    {query} = url.parse(window.location.href)
+    {code, state, _s} = querystring.parse(query)
+    if code and state
+      [first, ..., last] = state.split(',')
+      switch first
+        when 'vk'
+          sendCodeData = {
+            network:first
+            code:code
+            chatId:last
+          }
+          @remote.sendCode(sendCodeData, (s) ->
+            console.log(s)
+          )
+    if _s?
+      credentials = query.replace('_s=', '').split(':')
+      @createCookie('user', credentials[0], 1)
+      @createCookie('pass', credentials[1], 1)
+    user = @readCookie('user') # or query.replace('_s=', '').split(':')[0]
+    pass = @readCookie('pass') # or query.replace('_s=', '').split(':')[1]
+    if user and pass
+      @remote.auth(user, pass, (err, session) =>
+        if err
+          console.log(err)
+          return Dnode.end()
+        else
+          @authorized(session)
+      )
+
+  constructor:(Dnode) ->
+    @line   = document.getElementById('line')
+    @output = document.getElementById('output')
+    @line.onkeypress = @inputReturn
+    Dnode.on('remote', @remoteHandler)
 
 
 
