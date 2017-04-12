@@ -1,3 +1,8 @@
+#
+# followers https://www.instagram.com/graphql/query/?query_id=17851374694183129&id=4254944257&first=10&after=AQBazNnszkJeoUs9GzlpVn5GMSHHruookJzZlzzyTsmtQ4uG3H5GL_cXfIGCarRN3aK9UVZy3rMSj8nsdXPaL9izICMVJjr3U1qQylGSf_2RVQ
+#     
+# following https://www.instagram.com/graphql/query/?query_id=17874545323001329&id=4254944257&first=10&after=AQBYiZu0MazTlpYRYxF4zxXNsGkdTcjVnJ6gekN4oRiJMqCsL9UZ-Udj5SzWTzM9JuDjlvIzNjMjNhsRmOtjyEl7rqFqIGUMkEYHnSLFg6b4qg
+
 # cluster.coffee
 
 # Modules
@@ -20,6 +25,8 @@ coffeeify   = require('coffeeify')
 browserify  = require('browserify')
 levelgraph  = require('levelgraph')
 querystring = require('querystring')
+igSegment   = require('instagram-id-to-url-segment')
+igAccount   = require('instagram-scrape-account-stats')
 
 # Texts
 helpText = '''
@@ -37,14 +44,15 @@ aboutText = '''
   Github: https://github.com/caffellatte
   Npm: https://www.npmjs.com/~caffellatte
   Telegram: https://telegram.me/caffellatte'''
-authText = '''
+tokenText = '''
   Authorization via Social Networks'''
 
 # Functions
 {exec} = require('child_process')
 {writeFileSync, readFileSync} = fs
+{getAccountStats} = igAccount
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
-
+{instagramIdToUrlSegment, urlSegmentToInstagramId} = igSegment
 # Environment
 numCPUs = require('os').cpus().length
 {KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST} = process.env
@@ -71,9 +79,10 @@ queue = kue.createQueue()
 
 #UnderTheRules
 class UnderTheRules
+
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
+
   @dnodeSingUp:(guid, cb) ->
-    console.log(guid)
     if typeof cb isnt 'function'
       return
     createProfileJob = queue.create('createProfile', {
@@ -101,67 +110,6 @@ class UnderTheRules
         cb('ACCESS DENIED')
     )
 
-  @dnodeSendCode:(s, cb) ->
-    {chatId, code, network} = s
-    sendCodeJob = queue.create('sendCode', {
-      title:'Send authorization code',
-      chatId:chatId,
-      code:code,
-      network:network
-    }).save()
-    sendCodeJob.on('complete', (result) ->
-      cb(result)
-    )
-
-  @inputMessage:(id, s, cb) ->
-    mediaCheckerJob = queue.create('mediaChecker', {
-      title:"Media Checker. ID: #{id}."
-      id:id
-      text:s
-    }).save()
-    mediaCheckerJob.on('complete', (result) ->
-      cb(result)
-    )
-
-  @getTokens:(job, done) ->
-    {chatId} = job.data
-    token.get(chatId, (err, list) ->
-      if err
-        done(err)
-      else
-        if list
-          done(null, list)
-        else
-          done(err)
-    )
-
-  @saveTokens:(job, done) ->
-    {access_token, expires_in, user_id, email, chatId, first} = job.data
-    value = {
-      id:chatId
-      expires_in:expires_in
-      user_id:user_id
-      network:first
-      email:email
-      access_token:access_token
-    }
-    token.put(chatId, JSON.stringify(value), (err) ->
-      if err
-        done(new Error("Error! SaveTokens. #{triple}"))
-      else
-        token.get(chatId, (err, list) ->
-          if err
-            done(err)
-          else
-            queue.create('sendMessage', {
-              title:"Send support text. Telegram UID: #{chatId}."
-              chatId:chatId
-              text:'Token saved.'
-            }).save()
-            done()
-        )
-    )
-
   @createProfile:(job, done) ->
     {guid} = job.data
     if not guid?
@@ -174,14 +122,11 @@ class UnderTheRules
       guid:guid
       timestamp:+new Date()
     }
-    user.get(id, (err, list) ->
-      if err
-        user.put(id, JSON.stringify(value), (err) ->
-          if not err
-            done(null, value)
-          else
-            done(new Error(err))
-        )
+    user.put(id, JSON.stringify(value), (err) ->
+      if not err
+        done(null, value)
+      else
+        done(new Error(err))
     )
 
   @selectProfile:(job, done) ->
@@ -195,6 +140,37 @@ class UnderTheRules
         else
           done(new Error("Error! Type of list is '#{typeof list}'."))
     )
+
+  @inputMessage:(id, msg, cb) ->
+    switch msg
+      when '/help' then cb(helpText)
+      when '/start' then cb(startText)
+      when '/about' then cb(aboutText)
+      when '/tokens' then cb(tokenText)
+      else
+        mediaCheckerJob = queue.create('mediaChecker', {
+          title:"Media Checker. ID: #{id}."
+          id:id
+          text:msg
+        }).save()
+        mediaCheckerJob.on('complete', (result) ->
+          for item in result
+            {path} = url.parse(item)
+            getAccountStats({username:path[1..]}).then((account) ->
+              console.log(account)
+              {username,  name, userId, website} = account
+              {isExplicit, isPrivate, isVerified} = account
+              {description, followers, following, posts} = account
+              cb(account.description)
+            )
+        )
+
+  @mediaChecker:(job, done) ->
+    {id, text} = job.data
+    rawArray = UnderTheRules.tokenizer.tokenize(text)
+    rawlinks = (url.parse(link) for link in rawArray)
+    links    = (link.href for link in rawlinks when link.hostname?)
+    done(null, links)
 
   @browserify:(job, done) ->
     {browserCoffee, bundleJs} = job.data
@@ -218,144 +194,6 @@ class UnderTheRules
       done()
     )
 
-  @mediaAnalyzer:(job, done) ->
-    {chatId, href, host, path} = job.data
-    GetTokensJob = queue.create('getTokens', {
-      title:'Get Tokens',
-      chatId:chatId
-    }).save()
-    GetTokensJob.on('complete', (result) ->
-      {access_token} = JSON.parse(result)
-      if access_token
-        params = {
-          access_token:access_token
-          offset:0
-          count:100
-          extended:0
-          filter:'all'
-          v:VK_VERSION
-        }
-        if 'id' in path
-          params.owner_id = path[3..path.length]
-        else
-          params.domain = path[1..path.length]
-        vkMediaScraperJob = queue.create('vkMediaScraper', {
-          title:"mediaScraper Telegram UID: #{chatId}.",
-          chatId:chatId,
-          method:'wall.get',
-          params:params,
-          items:[]
-        }).save()
-        done()
-      else
-        done('Error! Can`t find access_token.')
-    )
-
-  @mediaChecker:(job, done) ->
-    {id, text} = job.data
-    rawLinks = UnderTheRules.tokenizer.tokenize(text)
-    console.log(rawLinks)
-    if rawLinks.length < 1
-      done(new Error('Error! Links not find!'))
-    else
-      done(null, rawLinks)
-      # rawLinks.forEach((item) ->
-      #   {href, host, path} = url.parse(item)
-      #   switch host
-      #     when 'vk.com'
-      #       if path
-      #         queue.create('mediaAnalyzer', {
-      #           title:"Analyze Media #{href}",
-      #           chatId:chatId,
-      #           href:href,
-      #           host:host,
-      #           path:path
-      #         }).save()
-      #   done()
-      # )
-
-  @vkMediaScraper:(job, done) ->
-    {chatId, method, params, items} = job.data
-    requestUrl = 'https://api.vk.com/method/'
-    requestUrl += "#{method}?#{querystring.stringify(params)}"
-    request(requestUrl, (error, response, body) ->
-      if not error and response.statusCode is 200
-        body = JSON.parse(body)
-        if body.response.count is 0
-          queue.create('sendMessage', {
-            title:"vkMediaScraper Telegram UID: #{chatId}.",
-            chatId:chatId,
-            text:'Empty Wall'
-          }).save()
-          done()
-          return
-        if (body.response.count - params.offset) > 0
-          params.offset += 100
-          items = items.concat(body.response.items)
-          vkMediaScraperJob = queue.create('vkMediaScraper', {
-            title:"mediaScraper Telegram UID: #{chatId}.",
-            chatId:chatId,
-            method:'wall.get',
-            params:params,
-            items:items
-          }).save()
-        else
-          vkWallStaticJob = queue.create('vkWallStatic', {
-            title:"vkWallStatic Telegram UID: #{chatId}.",
-            chatId:chatId,
-            name:(params.domain or params.user_id),
-            items:items
-          }).save()
-          vkWallStaticJob.on('complete', (result) ->
-            queue.create('sendDocument', {
-              title:"vkWallStaticJob Telegram UID: #{chatId}.",
-              chatId:chatId,
-              filePath:result
-            }).save()
-            done()
-          )
-      else
-        done(error)
-    )
-    done()
-
-  @vkWallStatic:(job, done) ->
-    {chatId, name, items} = job.data
-    filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
-    header = 'id;link;from_id;owner_id;date;post_type;comments;likes;reposts\n'
-    fs.writeFileSync(filename, header)
-    [first, ..., last] = items
-    rows = ''
-    for item in items
-      {id, from_id, owner_id, date, post_type, comments, likes, reposts} = item
-      rows += "#{id};https://vk.com/wall#{owner_id}_#{id};#{from_id};"
-      rows += "#{owner_id};#{new Date(date * 1000)};#{post_type};"
-      rows += "#{comments.count};#{likes.count};#{reposts.count}\n"
-      if id is last.id
-        fs.appendFileSync(filename, rows)
-        done(null, filename)
-
-  @sendCode:(job, done) ->
-    {code, chatId, network} = job.data
-    vkUrl  = 'https://oauth.vk.com/access_token?'
-    vkUrl += "client_id=#{VK_CLIENT_ID}&client_secret=#{VK_CLIENT_SECRET}&"
-    vkUrl += "redirect_uri=http://#{VK_REDIRECT_HOST}:#{VK_REDIRECT_PORT}/&"
-    vkUrl +=  "code=#{code}"
-    request(vkUrl, (error, response, body) ->
-      if not error and response.statusCode is 200
-        {access_token, expires_in, user_id, email} = JSON.parse(body)
-        queue.create('saveTokens', {
-          title:"Send support text. Telegram UID: #{chatId}."
-          chatId:chatId,
-          access_token:access_token,
-          expires_in:expires_in,
-          user_id:user_id,
-          email:email
-          network:network
-        }).save()
-        done()
-    )
-
   @pugRender:(job, done) ->
     {templatePug, indexHtml} = job.data
     writeFileSync(indexHtml, pug.renderFile(templatePug, {pretty:true}))
@@ -367,17 +205,6 @@ class UnderTheRules
     mkdirsSync("#{job.data.STATIC_DIR}/files")
     copySync(htdocsImg, staticImg)
     copySync(htdocsFaviconIco, staticFaviconIco)
-    done()
-
-  @support:(job, done) ->
-    {chatId, text} = job.data
-    if not chatId? or not text?
-      return done(new Error("Support. UID: #{chatId} Text: #{text}"))
-    queue.create('sendMessage', {
-      title:"Send support text. Telegram UID: #{chatId}."
-      chatId:chatId
-      text:text
-    }).save()
     done()
 
   @stylusRender:(job, done) ->
@@ -410,7 +237,6 @@ if cluster.isMaster
   ecstatic = require('ecstatic')(STATIC_DIR)
   server   = http.createServer(ecstatic) # Create a HTTP server.
 
-
 ## Starting Dnode. Using dnode via shoe & Install endpoint
   server.listen(PANEL_PORT, PANEL_HOST, ->
     console.log("Dnode: http://#{PANEL_HOST}:#{PANEL_PORT}")
@@ -433,8 +259,6 @@ if cluster.isMaster
   user = level(LEVEL_DIR + '/user', {type:'json'})
   token = level(LEVEL_DIR + '/token', {type:'json'})
 
-  queue.process('saveTokens', UnderTheRules.saveTokens)
-  queue.process('getTokens', UnderTheRules.getTokens)
   queue.process('createProfile', UnderTheRules.createProfile)
   queue.process('selectProfile', UnderTheRules.selectProfile)
 
@@ -495,13 +319,8 @@ if cluster.isMaster
 # Worker
 else
 
-  queue.process('sendCode', UnderTheRules.sendCode)
   queue.process('coffeelint', UnderTheRules.coffeelint)
-  queue.process('vkWallStatic', UnderTheRules.vkWallStatic)
-  queue.process('vkMediaScraper', UnderTheRules.vkMediaScraper)
-  queue.process('mediaAnalyzer', UnderTheRules.mediaAnalyzer)
   queue.process('mediaChecker', UnderTheRules.mediaChecker)
-  queue.process('support', UnderTheRules.support)
   queue.process('static', UnderTheRules.static)
   queue.process('pugRender', UnderTheRules.pugRender)
   queue.process('stylusRender', UnderTheRules.stylusRender)

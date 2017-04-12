@@ -8,6 +8,11 @@ request     = require('request')
 domready    = require('domready')
 querystring = require('querystring')
 
+# Prototypes
+Number::padLeft = (base, chr) ->
+  len = String(base or 10).length - (String(this).length) + 1
+  if len > 0 then new Array(len).join(chr or '0') + this else this
+
 # Interface
 class Interface
 
@@ -22,14 +27,28 @@ class Interface
     guid += screen.pixelDepth or ''
     return(guid)
 
+  createDate:(d = new Date()) ->
+    dformat = [
+      (d.getMonth() + 1).padLeft()
+      d.getDate().padLeft()
+      d.getFullYear()
+    ].join('/') + ' ' + [
+      d.getHours().padLeft()
+      d.getMinutes().padLeft()
+      d.getSeconds().padLeft()
+    ].join(':')
+    return(dformat)
+
   inputReturn:(event) =>
     {charCode} = event
     if charCode is 13
       {value} = @line
-      @output.innerHTML += "<li class='req'>#{value}</li>"
       @line.value = ''
       @remote.inputMessage(@id, value, (s) =>
-        @output.innerHTML += "<li class='resp'><code>#{s}</code></li>"
+        node = document.createElement('LI')
+        textnode = document.createTextNode(s)
+        node.appendChild(textnode)
+        @messages[@messages.length - 1].appendChild(node)
       )
       return false
     return
@@ -86,7 +105,6 @@ class Interface
       )
     else
       guid = @createGuid()
-      console.log(guid)
       @remote.dnodeSingUp(guid, (err, session) ->
         if err
           console.log(err)        # return Dnode.end()
@@ -95,8 +113,8 @@ class Interface
       )
 
   constructor:(Dnode) ->
-    @line   = document.getElementById('line')
-    @output = document.getElementById('output')
+    @line     = document.getElementById('line')
+    @messages = document.getElementsByClassName('messages')
     @line.onkeypress = @inputReturn
     Dnode.on('remote', @remoteHandler)
 
