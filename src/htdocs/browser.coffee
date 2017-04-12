@@ -30,6 +30,17 @@ authText = '''
 # Interface
 class Interface
 
+  createGuid:(giud = '') ->
+    nav = window.navigator
+    screen = window.screen
+    guid = nav.mimeTypes.length
+    guid += nav.userAgent.replace(/\D+/g, '')
+    guid += nav.plugins.length
+    guid += screen.height or ''
+    guid += screen.width or ''
+    guid += screen.pixelDepth or ''
+    return(guid)
+
   createJob:(options) ->
     {type, title, params, attempts, priority} = options
     jobOptions = {
@@ -57,8 +68,8 @@ class Interface
       {value} = @line
       @output.innerHTML += "<li class='req'>#{value}</li>"
       @line.value = ''
-      @remote.search(value, (s) =>
-        @output.innerHTML += "<li class='resp'>#{s}</li>"
+      @remote.inputMessage(value, (s) =>
+        @output.innerHTML += "<li class='resp'><code>#{s}</code></li>"
       )
       return false
     return
@@ -89,14 +100,10 @@ class Interface
     createCookie(name, '', -1)
     return
 
-  authorized:(session) ->
-    @session = session
-    console.log(@session)
-
   remoteHandler:(remote) =>
     @remote = remote
-    {query} = url.parse(window.location.href)
-    {code, state, _s} = querystring.parse(query)
+    {query, path} = url.parse(window.location.href)
+    {id, code, state} = querystring.parse(query)
     if code and state
       [first, ..., last] = state.split(',')
       switch first
@@ -109,19 +116,15 @@ class Interface
           @remote.sendCode(sendCodeData, (s) ->
             console.log(s)
           )
-    if _s?
-      credentials = query.replace('_s=', '').split(':')
-      @createCookie('user', credentials[0], 1)
-      @createCookie('pass', credentials[1], 1)
-    user = @readCookie('user') # or query.replace('_s=', '').split(':')[0]
-    pass = @readCookie('pass') # or query.replace('_s=', '').split(':')[1]
-    if user and pass
-      @remote.auth(user, pass, (err, session) =>
+    timestamp = +new Date()
+    guid      = @createGuid()
+    if timestamp and guid
+      @remote.dnodeAuth(id, timestamp, guid, (err, session) ->
         if err
           console.log(err)
-          return Dnode.end()
+          # return Dnode.end()
         else
-          @authorized(session)
+          console.log(session)
       )
 
   constructor:(Dnode) ->

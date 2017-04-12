@@ -1,22 +1,3 @@
-
-#
-# queue.process('sendMessage', (job, done) ->
-#   {chatId, text} = job.data
-#   if not chatId? or not text?
-#     return Error('Error at sending Message')
-#   tg.api.sendMessage(chatId, text)
-#   done()
-# )
-#   queue.process('sendDocument', (job, done) ->
-#     {chatId, filePath} = job.data
-#     if not chatId? or not filePath?
-#       return Error('Error at sending Document!')
-#     tg.api.sendDocument(chatId, InputFile.byFilePath(filePath))
-#     done()
-#   )
-
-
-
 # cluster.coffee
 
 # Modules
@@ -72,24 +53,33 @@ queue = kue.createQueue()
 #UnderTheRules
 class UnderTheRules
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
-  @dnodeAuth:(_user, _pass, cb) ->
+  @dnodeAuth:(id, timestamp, guid, cb) ->
     if typeof cb isnt 'function'
       return
-    if _user? and _pass?
-      AuthUserJob = queue.create('authenticate', {
-        title:"Authenticate user. Telegram UID: #{_user}.",
-        chatId:_user
+    if timestamp and guid
+      createProfileJob = queue.create('createProfile', {
+        title:"Create New Profile. Timestamp: #{timestamp}, GUID: #{guid}.",
+        timestamp:timestamp
+        guid:guid
       }).save()
-      AuthUserJob.on('complete', (result) ->
-        {user, pass, first_name, last_name} = result
-        if +_user is +user and _pass is pass
-          console.log("signed as: #{first_name} #{last_name}")
+      createProfileJob.on('complete', (result) ->
+        if result
           cb(null, result)
         else
           cb('ACCESS DENIED')
       )
     else
-      cb('ACCESS DENIED')
+      selectProfileJob = queue.create('selectProfile', {
+        title:"Select Existed Profile. ID: #{id}.",
+        id:id
+      }).save()
+      selectProfileJob.on('complete', (result) ->
+        if result
+          cb(null, result)
+        else
+          cb('ACCESS DENIED')
+      )
+
   @dnodeSendCode:(s, cb) ->
     {chatId, code, network} = s
     sendCodeJob = queue.create('sendCode', {
@@ -101,26 +91,15 @@ class UnderTheRules
     sendCodeJob.on('complete', (result) ->
       cb(result)
     )
-  @dnodeSearch:(s, cb) ->
+  @inputMessage:(s, cb) ->
+    # queue.create('mediaChecker', {
+    #   title:"mediaChecker Telegram UID: #{$.message.chat.id}."
+    #   chatId:$.message.chat.id
+    #   text:$.message.text
+    # }).save()
     console.log(s)
     cb(s)
-  @authenticate:(job, done) ->
-    {chatId} = job.data
-    user.get(chatId, (err, list) ->
-      if err
-        done(err)
-      else
-        {id, created, type, username, first_name, last_name} = JSON.parse(list)
-        pass = crypto.createHash('md5').update("#{created}").digest('hex')
-        done(null, {
-          user:id,
-          pass:pass,
-          first_name:first_name,
-          last_name:last_name,
-          username:username,
-          type:type
-        })
-    )
+
   @getTokens:(job, done) ->
     {chatId} = job.data
     token.get(chatId, (err, list) ->
@@ -132,37 +111,27 @@ class UnderTheRules
         else
           done(err)
     )
-  @create:(job, done) ->
-    {chatId, chat, text} = job.data
-    {id, type, username, first_name, last_name} = chat
+
+  @createProfile:(job, done) ->
+    {timestamp, guid} = job.data
+    if not timestamp? or not guid?
+      errorText = """Error! Can't create new profile.
+        Timestamp: #{timestamp}, GUID: #{guid}"""
+      return done(new Error(errorText))
+    id = crypto.createHash('md5').update("#{timestamp}#{guid}").digest('hex')
     value = {
       id:id
-      created:+new Date()
-      type:type
-      username:username
-      first_name:first_name
-      last_name:last_name
+      guid:guid
+      timestamp:timestamp
     }
     user.get(id, (err, list) ->
       if err
         user.put(id, JSON.stringify(value), (err) ->
           if not err
-            job = queue.create('sendMessage', {
-              title:"Create new profile. ID:#{id}."
-              chatId:chatId
-              text:"#{text}Create new profile. ID:#{id}"
-            }).save()
-            done(null, list)
+            done(null, value)
           else
-            done(err)
+            done(new Error(err))
         )
-      else
-        job = queue.create('sendMessage', {
-          title:"Profile already exists. ID: #{id}."
-          chatId:chatId
-          text:"#{text}Profile already exists ID: #{id}"
-        }).save()
-        done()
     )
   @saveTokens:(job, done) ->
     {access_token, expires_in, user_id, email, chatId, first} = job.data
@@ -190,22 +159,23 @@ class UnderTheRules
             done()
         )
     )
-  @session:(job, done) ->
-    {chatId, text} = job.data
-    user.get(chatId, (err, list) ->
+  @selectProfile:(job, done) ->
+    {id} = job.data
+    user.get(id, (err, list) ->
       if err
         done(err)
       else
         if list
           list = JSON.parse(list)
-          {id, created, type, username, first_name, last_name} = list
-          pass = crypto.createHash('md5').update("#{created}").digest('hex')
-          text += "http://#{PANEL_HOST}:#{PANEL_PORT}/?_s=#{chatId}:#{pass}"
-          job = queue.create('sendMessage', {
-            title:"Generate access link. Telegram UID: #{chatId}."
-            chatId:chatId
-            text:text
-          }).save()
+          console.log(list)
+          # {id, created, type, username, first_name, last_name} = list
+          # pass = crypto.createHash('md5').update("#{created}").digest('hex')
+          # text += "http://#{PANEL_HOST}:#{PANEL_PORT}/?_s=#{chatId}:#{pass}"
+          # job = queue.create('sendMessage', {
+          #   title:"Generate access link. Telegram UID: #{chatId}."
+          #   chatId:chatId
+          #   text:text
+          # }).save()
           done()
         else
           done('err')
@@ -344,16 +314,6 @@ class UnderTheRules
       if id is last.id
         fs.appendFileSync(filename, rows)
         done(null, filename)
-  @panel:(job, done) ->
-    {chatId, text} = job.data
-    if not chatId? or not text?
-      return done(new Error('Error! at panelHandler. Faild to send text.'))
-    queue.create('session', {
-      title:"Create new session. Telegram UID: #{chatId}.",
-      chatId:chatId,
-      text:"#{text}\n\n"
-    }).save()
-    done()
   @sendCode:(job, done) ->
     {code, chatId, network} = job.data
     vkUrl  = 'https://oauth.vk.com/access_token?'
@@ -377,17 +337,6 @@ class UnderTheRules
   @pugRender:(job, done) ->
     {templatePug, indexHtml} = job.data
     writeFileSync(indexHtml, pug.renderFile(templatePug, {pretty:true}))
-    done()
-  @start:(job, done) ->
-    {chatId, text, chat} = job.data
-    if not chatId? or not text? or not chat?
-      return done(new Error("Start. UID: #{chatId} Text: #{text}"))
-    queue.create('create', {
-      title:"Create new profile. Telegram UID: #{chatId}.",
-      chat:chat,
-      chatId:chatId,
-      text:"#{text}\n\n"
-    }).save()
     done()
   @static:(job, done) ->
     {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
@@ -444,8 +393,8 @@ if cluster.isMaster
   sock = shoe((stream) -> # Define API object providing integration vith dnode
     d = dnode({
       sendCode:UnderTheRules.dnodeSendCode
-      search:UnderTheRules.dnodeSearch
-      auth:UnderTheRules.dnodeAuth
+      inputMessage:UnderTheRules.inputMessage
+      dnodeAuth:UnderTheRules.dnodeAuth
     })
     d.pipe(stream).pipe(d)
   )
@@ -457,11 +406,11 @@ if cluster.isMaster
   log = level(LEVEL_DIR + '/log', {type:'json'})
   user = level(LEVEL_DIR + '/user', {type:'json'})
   token = level(LEVEL_DIR + '/token', {type:'json'})
-  queue.process('create', UnderTheRules.create)
-  queue.process('session', UnderTheRules.session)
-  queue.process('authenticate', UnderTheRules.authenticate)
+
   queue.process('saveTokens', UnderTheRules.saveTokens)
   queue.process('getTokens', UnderTheRules.getTokens)
+  queue.process('createProfile', UnderTheRules.createProfile)
+  queue.process('selectProfile', UnderTheRules.selectProfile)
 
 ## Create Jobs
   staticJob = queue.create('static', {
@@ -521,8 +470,7 @@ else
   queue.process('vkMediaScraper', UnderTheRules.vkMediaScraper)
   queue.process('mediaAnalyzer', UnderTheRules.mediaAnalyzer)
   queue.process('mediaChecker', UnderTheRules.mediaChecker)
-  queue.process('start', UnderTheRules.start)
-  queue.process('panel', UnderTheRules.panel)
+  queue.process('selectProfile', UnderTheRules.selectProfile)
   queue.process('support', UnderTheRules.support)
   queue.process('static', UnderTheRules.static)
   queue.process('pugRender', UnderTheRules.pugRender)

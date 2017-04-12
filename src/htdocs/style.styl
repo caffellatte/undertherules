@@ -1,44 +1,107 @@
-body
-  background-color #000
+*
+    box-sizing border-box
 
-.content
-  box-sizing border-box
-  border-collapse separate
-  border groove white 1px
-  margin 0 auto
+html
+    font-weight 300
+    -webkit-font-smoothing antialiased
 
-.command-line
-  font-size 14px
-  background #fff
-  text-align right
-  width 100%
-  margin 0
-  padding 0
+html, input
+    font-family "HelveticaNeue-Light",
+    "Helvetica Neue Light",
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    "Lucida Grande",
+    sans-serif
 
-.resp
-  display inline-block
-  background #eee
-  float left
+html, body
+    height 100%
+    margin 0
+    padding 0
 
-.req
-  display inline-block
-  background #ccc
-  float right
+ul
+    list-style none
+    word-wrap break-word
 
-@media screen and (min-width: 600px)
-  .command-line
-    font-size 1.2em
-  .req
-    font-size 1.2em
-    padding 1.2em
-  .resp
-    font-size 1.2em
-    padding 1.2em
+.pages
+    height 100%
+    margin 0
+    padding 0
+    width 100%
 
-@media screen and (min-width: 1024px)
-  .command-line
-    font-size 1.1em
-  .req
-    font-size 1.1em
-  .resp
-    font-size 1.1em
+.page
+    height 100%
+    position absolute
+    width 100%
+
+.login
+    &.page
+        background-color #000
+        .form
+            height 100px
+            margin-top -100px
+            position absolute
+            text-align center
+            top 50%
+            width 100%
+            .usernameInput
+                background-color transparent
+                border none
+                border-bottom 2px solid #fff
+                outline none
+                padding-bottom 15px
+                text-align center
+                width 400px
+        .title
+            font-size 200%
+        .usernameInput
+            font-size 200%
+            letter-spacing 3px
+
+.login.page .title, .login.page .usernameInput
+    color #fff
+    font-weight 100
+
+.chat
+    &.page
+        display none
+
+.messages
+    font-size 150%
+    height 100%
+    margin 0
+    overflow-y scroll
+    padding 10px 20px 10px 20px
+
+.inputMessage
+    font-size 100%
+    border 10px solid #000
+    bottom 0
+    height 60px
+    left 0
+    outline none
+    padding-left 10px
+    position absolute
+    right 0
+    width 100%
+
+.log
+    color gray
+    font-size 70%
+    margin 5px
+    text-align center
+
+.chatArea
+    height 100%
+    padding-bottom 60px
+
+.message
+    &.typing
+        .messageBody
+            color gray
+
+.username
+    font-weight 700
+    overflow hidden
+    padding-right 15px
+    text-align right
