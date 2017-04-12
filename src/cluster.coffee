@@ -21,6 +21,25 @@ browserify  = require('browserify')
 levelgraph  = require('levelgraph')
 querystring = require('querystring')
 
+# Texts
+helpText = '''
+  /help - List of commands
+  /about - Contacts & links
+  /tokens - Add social network'''
+startText = '''
+  Flexible environment for social network analysis (SNA).
+  Software provides full-cycle of retrieving and subsequent
+  processing data from the social networks.
+  Usage: /help. Contacts: /about.'''
+aboutText = '''
+  Undertherules, MIT license
+  Copyright (c) 2016 Mikhail G. Lutsenko
+  Github: https://github.com/caffellatte
+  Npm: https://www.npmjs.com/~caffellatte
+  Telegram: https://telegram.me/caffellatte'''
+authText = '''
+  Authorization via Social Networks'''
+
 # Functions
 {exec} = require('child_process')
 {writeFileSync, readFileSync} = fs
@@ -53,32 +72,34 @@ queue = kue.createQueue()
 #UnderTheRules
 class UnderTheRules
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
-  @dnodeAuth:(id, timestamp, guid, cb) ->
+  @dnodeSingUp:(guid, cb) ->
+    console.log(guid)
     if typeof cb isnt 'function'
       return
-    if timestamp and guid
-      createProfileJob = queue.create('createProfile', {
-        title:"Create New Profile. Timestamp: #{timestamp}, GUID: #{guid}.",
-        timestamp:timestamp
-        guid:guid
-      }).save()
-      createProfileJob.on('complete', (result) ->
-        if result
-          cb(null, result)
-        else
-          cb('ACCESS DENIED')
-      )
-    else
-      selectProfileJob = queue.create('selectProfile', {
-        title:"Select Existed Profile. ID: #{id}.",
-        id:id
-      }).save()
-      selectProfileJob.on('complete', (result) ->
-        if result
-          cb(null, result)
-        else
-          cb('ACCESS DENIED')
-      )
+    createProfileJob = queue.create('createProfile', {
+      title:"Create New Profile. GUID: #{guid}.",
+      guid:guid
+    }).save()
+    createProfileJob.on('complete', (result) ->
+      if result
+        cb(null, result)
+      else
+        cb('ACCESS DENIED')
+    )
+
+  @dnodeSingIn:(id, cb) ->
+    if typeof cb isnt 'function'
+      return
+    selectProfileJob = queue.create('selectProfile', {
+      title:"Select Existed Profile. ID: #{id}.",
+      id:id
+    }).save()
+    selectProfileJob.on('complete', (result) ->
+      if result
+        cb(null, result)
+      else
+        cb('ACCESS DENIED')
+    )
 
   @dnodeSendCode:(s, cb) ->
     {chatId, code, network} = s
@@ -91,14 +112,16 @@ class UnderTheRules
     sendCodeJob.on('complete', (result) ->
       cb(result)
     )
-  @inputMessage:(s, cb) ->
-    # queue.create('mediaChecker', {
-    #   title:"mediaChecker Telegram UID: #{$.message.chat.id}."
-    #   chatId:$.message.chat.id
-    #   text:$.message.text
-    # }).save()
-    console.log(s)
-    cb(s)
+
+  @inputMessage:(id, s, cb) ->
+    mediaCheckerJob = queue.create('mediaChecker', {
+      title:"Media Checker. ID: #{id}."
+      id:id
+      text:s
+    }).save()
+    mediaCheckerJob.on('complete', (result) ->
+      cb(result)
+    )
 
   @getTokens:(job, done) ->
     {chatId} = job.data
@@ -112,27 +135,6 @@ class UnderTheRules
           done(err)
     )
 
-  @createProfile:(job, done) ->
-    {timestamp, guid} = job.data
-    if not timestamp? or not guid?
-      errorText = """Error! Can't create new profile.
-        Timestamp: #{timestamp}, GUID: #{guid}"""
-      return done(new Error(errorText))
-    id = crypto.createHash('md5').update("#{timestamp}#{guid}").digest('hex')
-    value = {
-      id:id
-      guid:guid
-      timestamp:timestamp
-    }
-    user.get(id, (err, list) ->
-      if err
-        user.put(id, JSON.stringify(value), (err) ->
-          if not err
-            done(null, value)
-          else
-            done(new Error(err))
-        )
-    )
   @saveTokens:(job, done) ->
     {access_token, expires_in, user_id, email, chatId, first} = job.data
     value = {
@@ -159,27 +161,41 @@ class UnderTheRules
             done()
         )
     )
+
+  @createProfile:(job, done) ->
+    {guid} = job.data
+    if not guid?
+      errorText = """Error! Can't create new profile.
+        Timestamp: #{timestamp}, GUID: #{guid}"""
+      return done(new Error(errorText))
+    id = crypto.createHash('md5').update("#{guid}}").digest('hex')
+    value = {
+      id:id
+      guid:guid
+      timestamp:+new Date()
+    }
+    user.get(id, (err, list) ->
+      if err
+        user.put(id, JSON.stringify(value), (err) ->
+          if not err
+            done(null, value)
+          else
+            done(new Error(err))
+        )
+    )
+
   @selectProfile:(job, done) ->
     {id} = job.data
     user.get(id, (err, list) ->
       if err
-        done(err)
+        done(new Error(err))
       else
         if list
-          list = JSON.parse(list)
-          console.log(list)
-          # {id, created, type, username, first_name, last_name} = list
-          # pass = crypto.createHash('md5').update("#{created}").digest('hex')
-          # text += "http://#{PANEL_HOST}:#{PANEL_PORT}/?_s=#{chatId}:#{pass}"
-          # job = queue.create('sendMessage', {
-          #   title:"Generate access link. Telegram UID: #{chatId}."
-          #   chatId:chatId
-          #   text:text
-          # }).save()
-          done()
+          done(null, JSON.parse(list))
         else
-          done('err')
+          done(new Error("Error! Type of list is '#{typeof list}'."))
     )
+
   @browserify:(job, done) ->
     {browserCoffee, bundleJs} = job.data
     bundle = browserify({extensions:['.coffee.md']})
@@ -193,6 +209,7 @@ class UnderTheRules
       writeFileSync(bundleJs, js)
       done()
     )
+
   @coffeelint:(job, done) ->
     {files} = job.data
     command = 'coffeelint ' + "#{files.join(' ')}"
@@ -200,6 +217,7 @@ class UnderTheRules
       console.log(stdout, stderr)
       done()
     )
+
   @mediaAnalyzer:(job, done) ->
     {chatId, href, host, path} = job.data
     GetTokensJob = queue.create('getTokens', {
@@ -232,29 +250,30 @@ class UnderTheRules
       else
         done('Error! Can`t find access_token.')
     )
+
   @mediaChecker:(job, done) ->
-    {chatId, text} = job.data
+    {id, text} = job.data
     rawLinks = UnderTheRules.tokenizer.tokenize(text)
+    console.log(rawLinks)
     if rawLinks.length < 1
-      queue.create('sendMessage', {
-        title:"mediaChecker Telegram UID: #{chatId}."
-        chatId:chatId
-        text:'Unknown command. List of commands: /help.'
-      }).save()
-    rawLinks.forEach((item) ->
-      {href, host, path} = url.parse(item)
-      switch host
-        when 'vk.com'
-          if path
-            queue.create('mediaAnalyzer', {
-              title:"Analyze Media #{href}",
-              chatId:chatId,
-              href:href,
-              host:host,
-              path:path
-            }).save()
-      done()
-    )
+      done(new Error('Error! Links not find!'))
+    else
+      done(null, rawLinks)
+      # rawLinks.forEach((item) ->
+      #   {href, host, path} = url.parse(item)
+      #   switch host
+      #     when 'vk.com'
+      #       if path
+      #         queue.create('mediaAnalyzer', {
+      #           title:"Analyze Media #{href}",
+      #           chatId:chatId,
+      #           href:href,
+      #           host:host,
+      #           path:path
+      #         }).save()
+      #   done()
+      # )
+
   @vkMediaScraper:(job, done) ->
     {chatId, method, params, items} = job.data
     requestUrl = 'https://api.vk.com/method/'
@@ -299,6 +318,7 @@ class UnderTheRules
         done(error)
     )
     done()
+
   @vkWallStatic:(job, done) ->
     {chatId, name, items} = job.data
     filename = "#{STATIC_DIR}/files/#{name}-wall-#{items.length}.csv"
@@ -314,6 +334,7 @@ class UnderTheRules
       if id is last.id
         fs.appendFileSync(filename, rows)
         done(null, filename)
+
   @sendCode:(job, done) ->
     {code, chatId, network} = job.data
     vkUrl  = 'https://oauth.vk.com/access_token?'
@@ -334,10 +355,12 @@ class UnderTheRules
         }).save()
         done()
     )
+
   @pugRender:(job, done) ->
     {templatePug, indexHtml} = job.data
     writeFileSync(indexHtml, pug.renderFile(templatePug, {pretty:true}))
     done()
+
   @static:(job, done) ->
     {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
     mkdirsSync(job.data.STATIC_DIR)
@@ -345,6 +368,7 @@ class UnderTheRules
     copySync(htdocsImg, staticImg)
     copySync(htdocsFaviconIco, staticFaviconIco)
     done()
+
   @support:(job, done) ->
     {chatId, text} = job.data
     if not chatId? or not text?
@@ -355,6 +379,7 @@ class UnderTheRules
       text:text
     }).save()
     done()
+
   @stylusRender:(job, done) ->
     {styleStyl, styleCss} = job.data
     handler = (err, css) ->
@@ -392,9 +417,10 @@ if cluster.isMaster
   )
   sock = shoe((stream) -> # Define API object providing integration vith dnode
     d = dnode({
+      dnodeSingUp:UnderTheRules.dnodeSingUp
+      dnodeSingIn:UnderTheRules.dnodeSingIn
       sendCode:UnderTheRules.dnodeSendCode
       inputMessage:UnderTheRules.inputMessage
-      dnodeAuth:UnderTheRules.dnodeAuth
     })
     d.pipe(stream).pipe(d)
   )
@@ -421,26 +447,30 @@ if cluster.isMaster
     htdocsImg:htdocsImg
     staticImg:staticImg
   }).save()
+
   staticJob.on('complete', ->
     queue.create('pugRender', {
       title:'Render (transform) pug template to html',
       templatePug:templatePug,
       indexHtml:indexHtml
-    }).delay(10).save()
+    }).delay(1).save()
+
     queue.create('stylusRender', {
       title:'Render (transform) stylus template to css',
       styleStyl:styleStyl,
       styleCss:styleCss
-    }).delay(20).save()
+    }).delay(1).save()
+
     queue.create('browserify', {
       title:'Render (transform) coffee template to js',
       browserCoffee:browserCoffee,
       bundleJs:bundleJs
-    }).delay(30).save()
+    }).delay(1).save()
+
     queue.create('coffeelint', {
       title:'Link coffee files'
       files:[clusterCoffee, browserCoffee]
-    }).delay(5).save() # browserCoffee
+    }).delay(1).save() # browserCoffee
   )
 
 ## **Clean** job list on exit add to class
@@ -464,13 +494,13 @@ if cluster.isMaster
     i += 1
 # Worker
 else
+
   queue.process('sendCode', UnderTheRules.sendCode)
   queue.process('coffeelint', UnderTheRules.coffeelint)
   queue.process('vkWallStatic', UnderTheRules.vkWallStatic)
   queue.process('vkMediaScraper', UnderTheRules.vkMediaScraper)
   queue.process('mediaAnalyzer', UnderTheRules.mediaAnalyzer)
   queue.process('mediaChecker', UnderTheRules.mediaChecker)
-  queue.process('selectProfile', UnderTheRules.selectProfile)
   queue.process('support', UnderTheRules.support)
   queue.process('static', UnderTheRules.static)
   queue.process('pugRender', UnderTheRules.pugRender)

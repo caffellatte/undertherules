@@ -8,25 +8,6 @@ request     = require('request')
 domready    = require('domready')
 querystring = require('querystring')
 
-# Texts
-helpText = '''
-  /help - List of commands
-  /about - Contacts & links
-  /auth - Add social network'''
-startText = '''
-  Flexible environment for social network analysis (SNA).
-  Software provides full-cycle of retrieving and subsequent
-  processing data from the social networks.
-  Usage: /help. Contacts: /about. Tokens: /auth. Dashboard: /login.'''
-aboutText = '''
-  Undertherules, MIT license
-  Copyright (c) 2016 Mikhail G. Lutsenko
-  Github: https://github.com/caffellatte
-  Npm: https://www.npmjs.com/~caffellatte
-  Telegram: https://telegram.me/caffellatte'''
-authText = '''
-  Authorization via Social Networks'''
-
 # Interface
 class Interface
 
@@ -41,34 +22,13 @@ class Interface
     guid += screen.pixelDepth or ''
     return(guid)
 
-  createJob:(options) ->
-    {type, title, params, attempts, priority} = options
-    jobOptions = {
-      type:type,
-      data:{
-        title:title,
-        params:params
-      },
-      options:{
-        attempts:attempts or 5,
-        priority:priority or 'normal'
-      }
-    }
-    postOptions = {
-      url:'http://0.0.0.0:8816/job',
-      form:jobOptions
-    }
-    request.post(postOptions, (err, httpResponse, body) ->
-      console.log(body)
-    )
-
   inputReturn:(event) =>
     {charCode} = event
     if charCode is 13
       {value} = @line
       @output.innerHTML += "<li class='req'>#{value}</li>"
       @line.value = ''
-      @remote.inputMessage(value, (s) =>
+      @remote.inputMessage(@id, value, (s) =>
         @output.innerHTML += "<li class='resp'><code>#{s}</code></li>"
       )
       return false
@@ -116,15 +76,22 @@ class Interface
           @remote.sendCode(sendCodeData, (s) ->
             console.log(s)
           )
-    timestamp = +new Date()
-    guid      = @createGuid()
-    if timestamp and guid
-      @remote.dnodeAuth(id, timestamp, guid, (err, session) ->
+    if id
+      @remote.dnodeSingIn(id, (err, session) =>
         if err
           console.log(err)
-          # return Dnode.end()
         else
           console.log(session)
+          @id = session.id
+      )
+    else
+      guid = @createGuid()
+      console.log(guid)
+      @remote.dnodeSingUp(guid, (err, session) ->
+        if err
+          console.log(err)        # return Dnode.end()
+        else
+          window.location.assign("http://192.168.8.100:8294/?id=#{session.id}")
       )
 
   constructor:(Dnode) ->
