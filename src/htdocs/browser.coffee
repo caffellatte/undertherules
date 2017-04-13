@@ -81,6 +81,7 @@ class Interface
 
   remoteHandler:(remote) =>
     @remote = remote
+    @update(remote)
     {query, path} = url.parse(window.location.href)
     {id, code, state} = querystring.parse(query)
     if code and state
@@ -111,6 +112,16 @@ class Interface
         else
           window.location.assign("http://192.168.8.100:8294/?id=#{session.id}")
       )
+
+  update:(remote) =>
+    remote.dnodeUpdate(@id, (s) =>
+      text = document.createElement('CODE')
+      node = document.createElement('LI')
+      textnode = document.createTextNode(s)
+      text.appendChild(textnode)
+      node.appendChild(text)
+      @messages[@messages.length - 1].appendChild(node)
+    )
 
   constructor:(Dnode) ->
     @line     = document.getElementById('line')
