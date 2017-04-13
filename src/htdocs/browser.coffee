@@ -100,8 +100,8 @@ class Interface
         if err
           console.log(err)
         else
-          console.log(session)
           @id = session.id
+          console.log('id:', @id)
       )
     else
       guid = @createGuid()

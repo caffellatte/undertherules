@@ -157,21 +157,21 @@ class UnderTheRules
             request("#{item}/?__a=1", (error, response, body) ->
               if not error and response.statusCode is 200
                 {id} = JSON.parse(body).user
-                console.log(id)
+                # console.log(id)
                 queue.create('igConnections', {       # Followers
                   title:'Get Instagram Followers',
                   query_id:'17851374694183129',
                   after:null,
-                  first:10,
+                  first:20,
                   id:id
-                }).save()
+                }).delay(500).save()
                 queue.create('igConnections', {       # Following
                   title:'Get Instagram Followers',
                   query_id:'17874545323001329',
                   after:null,
-                  first:10,
+                  first:20,
                   id:id
-                }).save()
+                }).delay(1000).save()
             )
             cb(item)
         )
@@ -193,6 +193,7 @@ class UnderTheRules
     }
     url = 'https://www.instagram.com/graphql/query/'
     url += "?#{querystring.stringify(params)}"
+    # console.log('url:\t', url)
     options = {
       url:url,
       headers:{
@@ -200,13 +201,28 @@ class UnderTheRules
         'Cookie':CookieFile
       }
     }
-    request(options, (error, response, body) ->
+    request(options, (error, response, json) ->
       if not error and response.statusCode is 200
-        {edge_follow, edge_followed_by} = JSON.parse(body).data.user
-        if edge_follow
-          console.log(edge_follow)
-        if edge_followed_by
-          console.log(edge_followed_by)
+        body = JSON.parse(json)
+        {edge_follow, edge_followed_by} = body.data.user
+        {page_info, edges} = edge_follow or edge_followed_by
+        if edge_followed_by? then query_id = '17851374694183129'
+        if edge_follow? then query_id = '17874545323001329'
+        {has_next_page, end_cursor} = page_info
+        console.log('\nquery_id:\t', query_id)
+        console.log('has_next_page:\t', has_next_page)
+        console.log('edges.length:\t', edges.length, '\n')
+        # edges.forEach( (node) ->
+        #   console.log(node.id)
+        # )
+        if has_next_page
+          queue.create('igConnections', {
+            title:"Get Instagram: #{query_id}.",
+            query_id:query_id,
+            after:end_cursor,
+            first:20,
+            id:id
+          }).delay(500).save()
         done()
     )
 
