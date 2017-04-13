@@ -1,8 +1,3 @@
-#
-# followers https://www.instagram.com/graphql/query/?query_id=17851374694183129&id=4254944257&first=10&after=AQBazNnszkJeoUs9GzlpVn5GMSHHruookJzZlzzyTsmtQ4uG3H5GL_cXfIGCarRN3aK9UVZy3rMSj8nsdXPaL9izICMVJjr3U1qQylGSf_2RVQ
-#     
-# following https://www.instagram.com/graphql/query/?query_id=17874545323001329&id=4254944257&first=10&after=AQBYiZu0MazTlpYRYxF4zxXNsGkdTcjVnJ6gekN4oRiJMqCsL9UZ-Udj5SzWTzM9JuDjlvIzNjMjNhsRmOtjyEl7rqFqIGUMkEYHnSLFg6b4qg
-
 # cluster.coffee
 
 # Modules
@@ -23,10 +18,10 @@ cluster     = require('cluster')
 request     = require('request')
 coffeeify   = require('coffeeify')
 browserify  = require('browserify')
+cookiefile  = require('cookiefile')
 levelgraph  = require('levelgraph')
 querystring = require('querystring')
-igSegment   = require('instagram-id-to-url-segment')
-igAccount   = require('instagram-scrape-account-stats')
+CookieStore = require('file-cookie-store')
 
 # Texts
 helpText = '''
@@ -49,13 +44,13 @@ tokenText = '''
 
 # Functions
 {exec} = require('child_process')
+{CookieMap} = cookiefile
 {writeFileSync, readFileSync} = fs
-{getAccountStats} = igAccount
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
-{instagramIdToUrlSegment, urlSegmentToInstagramId} = igSegment
+
 # Environment
 numCPUs = require('os').cpus().length
-{KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST} = process.env
+{KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST, IG_COOKIE} = process.env
 {CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR, VK_SCOPE} = process.env
 {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
 VK_REDIRECT_HOST = PANEL_HOST
@@ -73,6 +68,10 @@ htdocsImg         = "#{HTDOCS_DIR}/img"
 htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico"
 templatePug       = "#{HTDOCS_DIR}/template.pug"
 styleStyl         = "#{HTDOCS_DIR}/style.styl"
+
+# Request Cookies
+cookieFile = new CookieMap(IG_COOKIE)
+CookieFile = cookieFile.toRequestHeader()
 
 # Queue
 queue = kue.createQueue()
@@ -155,14 +154,26 @@ class UnderTheRules
         }).save()
         mediaCheckerJob.on('complete', (result) ->
           for item in result
-            {path} = url.parse(item)
-            getAccountStats({username:path[1..]}).then((account) ->
-              console.log(account)
-              {username,  name, userId, website} = account
-              {isExplicit, isPrivate, isVerified} = account
-              {description, followers, following, posts} = account
-              cb(account.description)
+            request("#{item}/?__a=1", (error, response, body) ->
+              if not error and response.statusCode is 200
+                {id} = JSON.parse(body).user
+                console.log(id)
+                queue.create('igConnections', {       # Followers
+                  title:'Get Instagram Followers',
+                  query_id:'17851374694183129',
+                  after:null,
+                  first:10,
+                  id:id
+                }).save()
+                queue.create('igConnections', {       # Following
+                  title:'Get Instagram Followers',
+                  query_id:'17874545323001329',
+                  after:null,
+                  first:10,
+                  id:id
+                }).save()
             )
+            cb(item)
         )
 
   @mediaChecker:(job, done) ->
@@ -171,6 +182,33 @@ class UnderTheRules
     rawlinks = (url.parse(link) for link in rawArray)
     links    = (link.href for link in rawlinks when link.hostname?)
     done(null, links)
+
+  @igConnections:(job, done) ->
+    {id, query_id, first, id, after} = job.data
+    params = {
+      query_id:query_id,
+      after:after,
+      first:first,
+      id:id
+    }
+    url = 'https://www.instagram.com/graphql/query/'
+    url += "?#{querystring.stringify(params)}"
+    options = {
+      url:url,
+      headers:{
+        'User-Agent':'Mozilla/5.0',
+        'Cookie':CookieFile
+      }
+    }
+    request(options, (error, response, body) ->
+      if not error and response.statusCode is 200
+        {edge_follow, edge_followed_by} = JSON.parse(body).data.user
+        if edge_follow
+          console.log(edge_follow)
+        if edge_followed_by
+          console.log(edge_followed_by)
+        done()
+    )
 
   @browserify:(job, done) ->
     {browserCoffee, bundleJs} = job.data
@@ -261,6 +299,8 @@ if cluster.isMaster
 
   queue.process('createProfile', UnderTheRules.createProfile)
   queue.process('selectProfile', UnderTheRules.selectProfile)
+  queue.process('igConnections', UnderTheRules.igConnections)
+
 
 ## Create Jobs
   staticJob = queue.create('static', {
@@ -292,9 +332,10 @@ if cluster.isMaster
     }).delay(1).save()
 
     queue.create('coffeelint', {
-      title:'Link coffee files'
+      title:'Link coffee files',
       files:[clusterCoffee, browserCoffee]
     }).delay(1).save() # browserCoffee
+
   )
 
 ## **Clean** job list on exit add to class
