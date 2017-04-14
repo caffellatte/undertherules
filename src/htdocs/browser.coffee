@@ -96,7 +96,7 @@ class Browser
             console.log(s)
           )
     if id
-      @remote.dnodeSingIn(id, (err, session) =>
+      @remote.dnodeSingIn(id, null, (err, session) =>
         if err
           console.log(err)
         else

@@ -37,13 +37,8 @@ helpText = '''
 
 # Functions
 {exec} = child_process
-{CookieMap} = cookiefile
 {writeFileSync, readFileSync} = fs
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
-
-# Request Cookies
-cookieFile = new CookieMap(IG_COOKIE)
-CookieFile = cookieFile.toRequestHeader()
 
 # Environment
 numCPUs = require('os').cpus().length
@@ -52,6 +47,13 @@ numCPUs = require('os').cpus().length
 {VK_CLIENT_ID, VK_CLIENT_SECRET, VK_DISPLAY, VK_VERSION} = process.env
 VK_REDIRECT_HOST = PANEL_HOST
 VK_REDIRECT_PORT = PANEL_PORT
+
+
+# Request Cookies
+{CookieMap} = cookiefile
+cookieFile  = new CookieMap(IG_COOKIE)
+CookieFile  = cookieFile.toRequestHeader()
+console.log('\nCookie File:', IG_COOKIE, '\n')
 
 # Files
 browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
@@ -77,6 +79,7 @@ class Cluster
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
 
   @dnodeSingUp:(guid, cb) ->
+    console.log("@dnodeSingUp >> pid: #{process.pid}")
     if typeof cb isnt 'function'
       return
     createProfileJob = queue.create('createProfile', {
@@ -90,7 +93,8 @@ class Cluster
         cb('ACCESS DENIED')
     )
 
-  @dnodeSingIn:(graphId, cb) ->
+  @dnodeSingIn:(graphId, passwd, cb) ->
+    console.log("@dnodeSingIn >> pid: #{process.pid}")
     if typeof cb isnt 'function'
       return
     selectProfileJob = queue.create('selectProfile', {
@@ -105,6 +109,7 @@ class Cluster
     )
 
   @dnodeUpdate:(graphId, cb) ->
+    console.log("@dnodeUpdate >> pid: #{process.pid}\t[#{graphId}]")
     if graphId
       count = 0
       Log = level(LEVEL_DIR + "/#{graphId}-log", {type:'json'})
@@ -125,6 +130,7 @@ class Cluster
         )
 
   @createProfile:(job, done) ->
+    console.log("@createProfile >> pid: #{process.pid}")
     {guid} = job.data
     if not guid?
       errorText = """Error! Can't create new profile.
@@ -144,6 +150,7 @@ class Cluster
     )
 
   @selectProfile:(job, done) ->
+    console.log("@selectProfile >> pid: #{process.pid}\t[#{job.data.graphId}]")
     {graphId} = job.data
     graph.get(graphId, (err, list) ->
       if err
@@ -156,6 +163,7 @@ class Cluster
     )
 
   @inputMessage:(graphId, msg, cb) ->
+    console.log("@inputMessage >> pid: #{process.pid}\t[#{graphId}]")
     Log = level(LEVEL_DIR + "/#{graphId}-log", {type:'json'})
     Log.put("#{graphId}-#{new Date() // 1000}", msg, (err) ->
       if err then console.log('Ooops!', err)
@@ -204,6 +212,7 @@ class Cluster
         )
 
   @mediaChecker:(job, done) ->
+    console.log("@mediaChecker >> pid: #{process.pid}\t[#{job.data.graphId}]")
     {graphId, text} = job.data
     rawArray = Cluster.tokenizer.tokenize(text)
     rawlinks = (url.parse(link) for link in rawArray)
@@ -211,6 +220,7 @@ class Cluster
     done(null, links)
 
   @igConnections:(job, done) ->
+    console.log("@igConnections >> pid: #{process.pid}\t[#{job.data.graphId}]")
     {graphId, id, query_id, first, after} = job.data
     params = {query_id:query_id, after:after, first:first, id:id}
     igUrl = 'https://www.instagram.com/graphql/query/'
@@ -219,10 +229,10 @@ class Cluster
       url:igUrl,
       headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}
     }
-    console.log(igUrl)
+    # console.log(igUrl)
     requestHandler = (error, response, json) ->
       if not error and response.statusCode is 200
-        console.log(json)
+        # console.log(json)
         queue.create('igSave', {
           title:"Save Instagram: #{query_id}.",
           jsonData:json,
@@ -234,6 +244,7 @@ class Cluster
     done()
 
   @igSave:(job, done) ->
+    console.log("@igSave >> pid: #{process.pid}\t[#{job.data.graphId}]")
     {graphId, id, jsonData, query_id} = job.data
     {edge_follow, edge_followed_by} = JSON.parse(jsonData).data.user
     {page_info, edges} = edge_follow or edge_followed_by
@@ -270,6 +281,7 @@ class Cluster
     done()
 
   @igSaveArray:(job, done) ->
+    console.log("@igSaveArray >> pid: #{process.pid}\t[#{job.data.graphId}]")
     {graphId, flag, edges, id} = job.data
     if flag then target = id else source = id
     nodesArray = ({
@@ -288,34 +300,47 @@ class Cluster
       },
       valueEncoding:'json'
     } for e in edges)
-    queue.create('igSaveBatch', {
-      title:"Save Batch Instagram. GraphID: #{id}.",
+    queue.create('igSaveBatchEdges', {
+      title:"Save Batch Edges Instagram. GraphID: #{id}.",
       edgesArray:edgesArray,
+      id:id,
+      graphId:graphId
+    }).delay(500).save()
+    queue.create('igSaveBatchNodes', {
+      title:"Save Batch Nodes Instagram. GraphID: #{id}.",
       nodesArray:nodesArray,
       id:id,
       graphId:graphId
     }).delay(500).save()
     done()
 
-  @igSaveBatch:(job, done) ->
+  @igSaveBatchEdges:(job, done) ->
+    console.log("@igSaveBatchEdges\tpid: #{process.pid}\t[#{job.data.graphId}]")
     {nodesArray, edgesArray, graphId} = job.data
     Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
+    Edges.batch(edgesArray, (err) ->
+      if err then console.log('Ooops!', err)
+      console.log('Edges added! GraphID:', graphId)
+      Edges.close()
+      done()
+    )
+
+
+  @igSaveBatchNodes:(job, done) ->
+    console.log("@igSaveBatchNodes\tpid: #{process.pid}\t[#{job.data.graphId}]")
+    {nodesArray, graphId} = job.data
     Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
     Nodes.batch(nodesArray, (err) ->
       if err then console.log('Ooops!', err)
       console.log('Nodes added! GraphID:', graphId)
       Nodes.close()
+      done()
     )
-    Edges.batch(edgesArray, (err) ->
-      if err then console.log('Ooops!', err)
-      console.log('Edges added! GraphID:', graphId)
-      Edges.close()
-    )
-    done()
+
 
   @igSaveJson:(job, done) ->
     {graphId} = job.data
-    console.log('Save Json Instagram. GraphID:', graphId)
+    console.log("@igSaveJson >> pid: #{process.pid}\t[#{graphId}]")
     # igUser.createReadStream()
     #   .on('data', (data) ->
     #     cb(data.value)
@@ -332,6 +357,7 @@ class Cluster
     done()
 
   @browserify:(job, done) ->
+    console.log("@browserify. >> pid: #{process.pid}")
     {browserCoffee, bundleJs} = job.data
     bundle = browserify({extensions:['.coffee.md']})
     bundle.transform(coffeeify, {
@@ -346,6 +372,7 @@ class Cluster
     )
 
   @coffeelint:(job, done) ->
+    console.log("@coffeelint. >> pid: #{process.pid}")
     {files} = job.data
     command = 'coffeelint ' + "#{files.join(' ')}"
     exec(command, (err, stdout, stderr) ->
@@ -354,11 +381,13 @@ class Cluster
     )
 
   @pugRender:(job, done) ->
+    console.log("@pugRender. >> pid: #{process.pid}")
     {templatePug, indexHtml} = job.data
     writeFileSync(indexHtml, pug.renderFile(templatePug, {pretty:true}))
     done()
 
   @static:(job, done) ->
+    console.log("@static. >> pid: #{process.pid}")
     {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
     mkdirsSync(job.data.STATIC_DIR)
     mkdirsSync("#{job.data.STATIC_DIR}/files")
@@ -368,6 +397,7 @@ class Cluster
     done()
 
   @stylusRender:(job, done) ->
+    console.log("@stylusRender. >> pid: #{process.pid}")
     {styleStyl, styleCss} = job.data
     handler = (err, css) ->
       if err then throw err
@@ -417,7 +447,7 @@ if cluster.isMaster
 
   queue.process('createProfile', Cluster.createProfile)
   queue.process('selectProfile', Cluster.selectProfile)
-  queue.process('igSaveBatch', Cluster.igSaveBatch)
+
 ## Create Jobs
   staticJob = queue.create('static', {
     title:'Copy images from HTDOCS_DIR to STATIC_DIR',
@@ -486,3 +516,5 @@ else
   queue.process('igSaveArray', Cluster.igSaveArray)
   queue.process('igConnections', Cluster.igConnections)
   queue.process('coffeelint', Cluster.coffeelint)
+  queue.process('igSaveBatchNodes', Cluster.igSaveBatchNodes)
+  queue.process('igSaveBatchEdges', Cluster.igSaveBatchEdges)
