@@ -81,7 +81,6 @@ class Browser
 
   remoteHandler:(remote) =>
     @remote = remote
-    @update(remote)
     {query, path} = url.parse(window.location.href)
     {id, code, state} = querystring.parse(query)
     if code and state
@@ -101,8 +100,9 @@ class Browser
         if err
           console.log(err)
         else
-          @id = session.id
+          @id = session.graphId
           console.log('id:', @id)
+          @update(@remote)
       )
     else
       guid = @createGuid()
@@ -110,7 +110,8 @@ class Browser
         if err
           console.log(err)        # return Dnode.end()
         else
-          window.location.assign("http://192.168.8.100:8294/?id=#{session.id}")
+          redirectLink = "http://192.168.8.100:8294/?id=#{session.graphId}"
+          window.location.assign(redirectLink)
       )
 
   update:(remote) =>

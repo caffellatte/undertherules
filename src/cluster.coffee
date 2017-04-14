@@ -90,12 +90,12 @@ class Cluster
         cb('ACCESS DENIED')
     )
 
-  @dnodeSingIn:(id, cb) ->
+  @dnodeSingIn:(graphId, cb) ->
     if typeof cb isnt 'function'
       return
     selectProfileJob = queue.create('selectProfile', {
-      title:"Select Existed Profile. ID: #{id}.",
-      id:id
+      title:"Select Existed Profile. graphId: #{graphId}.",
+      graphId:graphId
     }).save()
     selectProfileJob.on('complete', (result) ->
       if result
@@ -104,20 +104,25 @@ class Cluster
         cb('ACCESS DENIED')
     )
 
-  @dnodeUpdate:(id, cb) ->
-    log.createReadStream()
-      .on('data', (data) ->
-        cb(data.value)
-      )
-      .on('error', (err) ->
-        cb('[LOG] Oh my!' + err)
-      )
-      .on('close', ->
-        cb('[LOG] Stream closed')
-      )
-      .on('end', ->
-        cb('[LOG] Stream ended')
-      )
+  @dnodeUpdate:(graphId, cb) ->
+    if graphId
+      count = 0
+      Log = level(LEVEL_DIR + "/#{graphId}-log", {type:'json'})
+      Log.createReadStream()
+        .on('data', (data) ->
+          count += 1
+          cb(data.value)
+        )
+        .on('error', (err) ->
+          cb('[LOG] Oh my!' + err)
+        )
+        .on('close', ->
+          if count > 1 then ifOne = 's' else ifOne = ''
+          cb("#{count} link#{ifOne}.")
+        )
+        .on('end', ->
+          Log.close()
+        )
 
   @createProfile:(job, done) ->
     {guid} = job.data
@@ -125,13 +130,13 @@ class Cluster
       errorText = """Error! Can't create new profile.
         Timestamp: #{timestamp}, GUID: #{guid}"""
       return done(new Error(errorText))
-    id = crypto.createHash('md5').update("#{guid}}").digest('hex')
+    graphId = crypto.createHash('md5').update("#{guid}}").digest('hex')
     value = {
-      id:id
+      graphId:graphId
       guid:guid
       timestamp:+new Date()
     }
-    graph.put(id, JSON.stringify(value), (err) ->
+    graph.put(graphId, JSON.stringify(value), (err) ->
       if not err
         done(null, value)
       else
@@ -139,8 +144,8 @@ class Cluster
     )
 
   @selectProfile:(job, done) ->
-    {id} = job.data
-    graph.get(id, (err, list) ->
+    {graphId} = job.data
+    graph.get(graphId, (err, list) ->
       if err
         done(new Error(err))
       else
@@ -151,9 +156,10 @@ class Cluster
     )
 
   @inputMessage:(graphId, msg, cb) ->
-    log.put("#{graphId}-#{new Date() // 1000}", msg, (err) ->
-      if err
-        console.log('Ooops!', err)
+    Log = level(LEVEL_DIR + "/#{graphId}-log", {type:'json'})
+    Log.put("#{graphId}-#{new Date() // 1000}", msg, (err) ->
+      if err then console.log('Ooops!', err)
+      Log.close()
     )
     switch msg
       when '/help' then cb(helpText)
@@ -168,28 +174,31 @@ class Cluster
             request("#{item}/?__a=1", (error, response, body) ->
               if not error and response.statusCode is 200
                 data = JSON.parse(body)
-                {id} = data.user
-                Users = level(LEVEL_DIR + "/#{graphId}-ig-users", {type:'json'})
+                {id, follows_viewer, is_private} = data.user
+                Users = level(LEVEL_DIR + "/#{graphId}-ig-users", {
+                  type:'json'
+                })
                 Users.put(id, data.user, {valueEncoding:'json'}, (err) ->
                   if err then console.log('Ooops!', err)
                   Users.close()
                 )
-                queue.create('igConnections', {       # Followers
-                  title:'Get Instagram Followers',
-                  query_id:'17851374694183129',
-                  after:null,
-                  first:20,
-                  id:id,
-                  graphId:graphId
-                }).delay(500).save()
-                queue.create('igConnections', {       # Following
-                  title:'Get Instagram Followers',
-                  query_id:'17874545323001329',
-                  after:null,
-                  first:20,
-                  id:id,
-                  graphId:graphId
-                }).delay(1000).save()
+                if not (is_private is true and follows_viewer is false)
+                  queue.create('igConnections', {       # Followers
+                    title:'Get Instagram Followers',
+                    query_id:'17851374694183129',
+                    after:null,
+                    first:20,
+                    id:id,
+                    graphId:graphId
+                  }).delay(500).save()
+                  queue.create('igConnections', {       # Following
+                    title:'Get Instagram Followers',
+                    query_id:'17874545323001329',
+                    after:null,
+                    first:20,
+                    id:id,
+                    graphId:graphId
+                  }).delay(1000).save()
             )
             cb(item)
         )
@@ -202,13 +211,18 @@ class Cluster
     done(null, links)
 
   @igConnections:(job, done) ->
-    {graphId, id, query_id, first, id, after} = job.data
+    {graphId, id, query_id, first, after} = job.data
     params = {query_id:query_id, after:after, first:first, id:id}
-    url = 'https://www.instagram.com/graphql/query/'
-    url += "?#{querystring.stringify(params)}"
-    opts = {url:url, headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}}
+    igUrl = 'https://www.instagram.com/graphql/query/'
+    igUrl += "?#{querystring.stringify(params)}"
+    opts = {
+      url:igUrl,
+      headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}
+    }
+    console.log(igUrl)
     requestHandler = (error, response, json) ->
       if not error and response.statusCode is 200
+        console.log(json)
         queue.create('igSave', {
           title:"Save Instagram: #{query_id}.",
           jsonData:json,
@@ -398,13 +412,12 @@ if cluster.isMaster
   )
   sock.install(server, '/dnode')
 
-  ensureDirSync(LEVEL_DIR) # Create Level Dir folder
-  log = level(LEVEL_DIR + '/log', {type:'json'})
+  ensureDirSync(LEVEL_DIR)
   graph = level(LEVEL_DIR + '/graph', {type:'json'})
 
   queue.process('createProfile', Cluster.createProfile)
   queue.process('selectProfile', Cluster.selectProfile)
-
+  queue.process('igSaveBatch', Cluster.igSaveBatch)
 ## Create Jobs
   staticJob = queue.create('static', {
     title:'Copy images from HTDOCS_DIR to STATIC_DIR',
@@ -471,6 +484,5 @@ else
   queue.process('igSave', Cluster.igSave)
   queue.process('igSaveJson', Cluster.igSaveJson)
   queue.process('igSaveArray', Cluster.igSaveArray)
-  queue.process('igSaveBatch', Cluster.igSaveBatch)
   queue.process('igConnections', Cluster.igConnections)
   queue.process('coffeelint', Cluster.coffeelint)
