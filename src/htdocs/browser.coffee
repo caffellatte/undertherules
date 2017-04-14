@@ -13,8 +13,8 @@ Number::padLeft = (base, chr) ->
   len = String(base or 10).length - (String(this).length) + 1
   if len > 0 then new Array(len).join(chr or '0') + this else this
 
-# Interface
-class Interface
+# Browser
+class Browser
 
   createGuid:(giud = '') ->
     nav = window.navigator
@@ -135,5 +135,5 @@ domready( ->
   stream = shoe('/dnode')
   Dnode  = dnode()
   Dnode.pipe(stream).pipe(Dnode)
-  UI = new Interface(Dnode)
+  UI = new Browser(Dnode)
 )

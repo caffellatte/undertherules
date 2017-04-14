@@ -1,52 +1,49 @@
 # cluster.coffee
 
 # Modules
-_           = require('lodash')
-fs          = require('fs-extra')
-os          = require('os')
-kue         = require('kue')
-pug         = require('pug')
-url         = require('url')
-http        = require('http')
-shoe        = require('shoe')
-dnode       = require('dnode')
-level       = require('levelup')
-crypto      = require('crypto')
-stylus      = require('stylus')
-natural     = require('natural')
-cluster     = require('cluster')
-request     = require('request')
-coffeeify   = require('coffeeify')
-browserify  = require('browserify')
-cookiefile  = require('cookiefile')
-levelgraph  = require('levelgraph')
-querystring = require('querystring')
-CookieStore = require('file-cookie-store')
+_             = require('lodash')
+fs            = require('fs-extra')
+os            = require('os')
+kue           = require('kue')
+pug           = require('pug')
+url           = require('url')
+http          = require('http')
+shoe          = require('shoe')
+dnode         = require('dnode')
+level         = require('levelup')
+crypto        = require('crypto')
+stylus        = require('stylus')
+natural       = require('natural')
+cluster       = require('cluster')
+request       = require('request')
+coffeeify     = require('coffeeify')
+browserify    = require('browserify')
+cookiefile    = require('cookiefile')
+querystring   = require('querystring')
+child_process = require('child_process')
 
 # Texts
 helpText = '''
-  /help - List of commands
-  /about - Contacts & links
-  /tokens - Add social network'''
-startText = '''
   Flexible environment for social network analysis (SNA).
   Software provides full-cycle of retrieving and subsequent
   processing data from the social networks.
-  Usage: /help. Contacts: /about.'''
-aboutText = '''
-  Undertherules, MIT license
+  Usage: /help. Contacts: /about.
+
+  Under The Rules, MIT license
   Copyright (c) 2016 Mikhail G. Lutsenko
   Github: https://github.com/caffellatte
   Npm: https://www.npmjs.com/~caffellatte
   Telegram: https://telegram.me/caffellatte'''
-tokenText = '''
-  Authorization via Social Networks'''
 
 # Functions
-{exec} = require('child_process')
+{exec} = child_process
 {CookieMap} = cookiefile
 {writeFileSync, readFileSync} = fs
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
+
+# Request Cookies
+cookieFile = new CookieMap(IG_COOKIE)
+CookieFile = cookieFile.toRequestHeader()
 
 # Environment
 numCPUs = require('os').cpus().length
@@ -59,25 +56,23 @@ VK_REDIRECT_PORT = PANEL_PORT
 # Files
 browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
 clusterCoffee     = "#{CORE_DIR}/cluster.coffee"
+staticJs          = "#{STATIC_DIR}/js"
 staticImg         = "#{STATIC_DIR}/img"
 staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
 indexHtml         = "#{STATIC_DIR}/index.html"
 styleCss          = "#{STATIC_DIR}/style.css"
 bundleJs          = "#{STATIC_DIR}/bundle.js"
+htdocsJs          = "#{HTDOCS_DIR}/js"
 htdocsImg         = "#{HTDOCS_DIR}/img"
 htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico"
 templatePug       = "#{HTDOCS_DIR}/template.pug"
 styleStyl         = "#{HTDOCS_DIR}/style.styl"
 
-# Request Cookies
-cookieFile = new CookieMap(IG_COOKIE)
-CookieFile = cookieFile.toRequestHeader()
-
 # Queue
 queue = kue.createQueue()
 
-#UnderTheRules
-class UnderTheRules
+# Cluster
+class Cluster
 
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
 
@@ -123,45 +118,6 @@ class UnderTheRules
       .on('end', ->
         cb('[LOG] Stream ended')
       )
-    igNode.createReadStream()
-      .on('data', (data) ->
-        cb(data.value)
-      )
-      .on('error', (err) ->
-        cb('[NODES] Oh my!' + err)
-      )
-      .on('close', ->
-        cb('[NODES] Stream closed')
-      )
-      .on('end', ->
-        cb('[NODES] Stream ended')
-      )
-    igEdge.createReadStream()
-      .on('data', (data) ->
-        cb(data.value)
-      )
-      .on('error', (err) ->
-        cb('[EDGES] Oh my!' + err)
-      )
-      .on('close', ->
-        cb('[EDGES] Stream closed')
-      )
-      .on('end', ->
-        cb('[EDGES] Stream ended')
-      )
-    igUser.createReadStream()
-      .on('data', (data) ->
-        cb(data.value)
-      )
-      .on('error', (err) ->
-        cb('[USER] Oh my!', err)
-      )
-      .on('close', ->
-        cb('[USER] Stream closed')
-      )
-      .on('end', ->
-        cb('[USER] Stream ended')
-      )
 
   @createProfile:(job, done) ->
     {guid} = job.data
@@ -175,7 +131,7 @@ class UnderTheRules
       guid:guid
       timestamp:+new Date()
     }
-    user.put(id, JSON.stringify(value), (err) ->
+    graph.put(id, JSON.stringify(value), (err) ->
       if not err
         done(null, value)
       else
@@ -184,7 +140,7 @@ class UnderTheRules
 
   @selectProfile:(job, done) ->
     {id} = job.data
-    user.get(id, (err, list) ->
+    graph.get(id, (err, list) ->
       if err
         done(new Error(err))
       else
@@ -194,21 +150,17 @@ class UnderTheRules
           done(new Error("Error! Type of list is '#{typeof list}'."))
     )
 
-  @inputMessage:(id, msg, cb) ->
-    msgTs =
-    log.put("#{id}-#{new Date() // 1000}", msg, (err) ->
+  @inputMessage:(graphId, msg, cb) ->
+    log.put("#{graphId}-#{new Date() // 1000}", msg, (err) ->
       if err
         console.log('Ooops!', err)
     )
     switch msg
       when '/help' then cb(helpText)
-      when '/start' then cb(startText)
-      when '/about' then cb(aboutText)
-      when '/tokens' then cb(tokenText)
       else
         mediaCheckerJob = queue.create('mediaChecker', {
-          title:"Media Checker. ID: #{id}."
-          id:id
+          title:"Media Checker. GraphID: #{graphId}."
+          graphId:graphId
           text:msg
         }).save()
         mediaCheckerJob.on('complete', (result) ->
@@ -217,88 +169,153 @@ class UnderTheRules
               if not error and response.statusCode is 200
                 data = JSON.parse(body)
                 {id} = data.user
-                igUser.put(id, user, {valueEncoding:'json'}, (err) ->
-                  if err
-                    console.log('Ooops!', err)
+                Users = level(LEVEL_DIR + "/#{graphId}-ig-users", {type:'json'})
+                Users.put(id, data.user, {valueEncoding:'json'}, (err) ->
+                  if err then console.log('Ooops!', err)
+                  Users.close()
                 )
                 queue.create('igConnections', {       # Followers
                   title:'Get Instagram Followers',
                   query_id:'17851374694183129',
                   after:null,
                   first:20,
-                  id:id
+                  id:id,
+                  graphId:graphId
                 }).delay(500).save()
                 queue.create('igConnections', {       # Following
                   title:'Get Instagram Followers',
                   query_id:'17874545323001329',
                   after:null,
                   first:20,
-                  id:id
+                  id:id,
+                  graphId:graphId
                 }).delay(1000).save()
             )
             cb(item)
         )
 
   @mediaChecker:(job, done) ->
-    {id, text} = job.data
-    rawArray = UnderTheRules.tokenizer.tokenize(text)
+    {graphId, text} = job.data
+    rawArray = Cluster.tokenizer.tokenize(text)
     rawlinks = (url.parse(link) for link in rawArray)
     links    = (link.href for link in rawlinks when link.hostname?)
     done(null, links)
 
   @igConnections:(job, done) ->
-    {id, query_id, first, id, after} = job.data
+    {graphId, id, query_id, first, id, after} = job.data
     params = {query_id:query_id, after:after, first:first, id:id}
     url = 'https://www.instagram.com/graphql/query/'
     url += "?#{querystring.stringify(params)}"
     opts = {url:url, headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}}
     requestHandler = (error, response, json) ->
       if not error and response.statusCode is 200
-        {edge_follow, edge_followed_by} = JSON.parse(json).data.user
-        {page_info, edges} = edge_follow or edge_followed_by
-        if edge_followed_by?
-          query_id = '17851374694183129'
-          query_type = 'edge_followed_by'
-          target = id
-        else
-          query_id = '17874545323001329'
-          query_type = 'edge_follow'
-          source = id
-        {has_next_page, end_cursor} = page_info
-        nodesArray = ({
-          type:'put',
-          key:"#{e.node.id}",
-          value:e.node,
-          valueEncoding:'json'
-        } for e in edges)
-        igNode.batch(nodesArray, (err) ->
-          if err then console.log('Ooops!', err)
-          console.log('Nodes added!')
-        )
-        edgesArray = ({
-          type:'put',
-          key:"#{source or e.node.id}-#{target or e.node.id}",
-          value:{
-            id:"#{source or e.node.id}-#{target or e.node.id}",
-            source:source or e.node.id,
-            target:target or e.node.id
-          },
-          valueEncoding:'json'
-        } for e in edges)
-        igEdge.batch(edgesArray, (err) ->
-          if err then console.log('Ooops!', err)
-          console.log('Edges added!')
-        )
-        if has_next_page
-          queue.create('igConnections', {
-            title:"Get Instagram: #{query_id}.",
-            query_id:query_id,
-            after:end_cursor,
-            first:20,
-            id:id
-          }).delay(500).save()
-        done()
+        queue.create('igSave', {
+          title:"Save Instagram: #{query_id}.",
+          jsonData:json,
+          query_id:query_id,
+          id:id,
+          graphId:graphId
+        }).delay(500).save()
     request(opts, requestHandler)
+    done()
+
+  @igSave:(job, done) ->
+    {graphId, id, jsonData, query_id} = job.data
+    {edge_follow, edge_followed_by} = JSON.parse(jsonData).data.user
+    {page_info, edges} = edge_follow or edge_followed_by
+    {has_next_page, end_cursor} = page_info
+    flag = edge_followed_by?
+    if flag
+      query_id = '17851374694183129'
+    else
+      query_id = '17874545323001329'
+    queue.create('igSaveArray', {
+      title:"Save Array Instagram: GraphID: #{id}.",
+      flag:flag,
+      edges:edges,
+      query_id:query_id,
+      after:end_cursor,
+      first:20,
+      id:id,
+      graphId:graphId
+    }).delay(500).save()
+    if has_next_page
+      queue.create('igConnections', {
+        title:"Get Instagram: #{query_id}.",
+        query_id:query_id,
+        after:end_cursor,
+        first:20,
+        id:id,
+        graphId:graphId
+      }).delay(500).save()
+    else
+      queue.create('igSaveJson', {
+        title:"Get Instagram: #{query_id}.",
+        graphId:graphId
+      }).delay(500).save()
+    done()
+
+  @igSaveArray:(job, done) ->
+    {graphId, flag, edges, id} = job.data
+    if flag then target = id else source = id
+    nodesArray = ({
+      type:'put',
+      key:"#{e.node.id}",
+      value:e.node,
+      valueEncoding:'json'
+    } for e in edges)
+    edgesArray = ({
+      type:'put',
+      key:"#{source or e.node.id}-#{target or e.node.id}",
+      value:{
+        id:"#{source or e.node.id}-#{target or e.node.id}",
+        source:source or e.node.id,
+        target:target or e.node.id
+      },
+      valueEncoding:'json'
+    } for e in edges)
+    queue.create('igSaveBatch', {
+      title:"Save Batch Instagram. GraphID: #{id}.",
+      edgesArray:edgesArray,
+      nodesArray:nodesArray,
+      id:id,
+      graphId:graphId
+    }).delay(500).save()
+    done()
+
+  @igSaveBatch:(job, done) ->
+    {nodesArray, edgesArray, graphId} = job.data
+    Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
+    Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+    Nodes.batch(nodesArray, (err) ->
+      if err then console.log('Ooops!', err)
+      console.log('Nodes added! GraphID:', graphId)
+      Nodes.close()
+    )
+    Edges.batch(edgesArray, (err) ->
+      if err then console.log('Ooops!', err)
+      console.log('Edges added! GraphID:', graphId)
+      Edges.close()
+    )
+    done()
+
+  @igSaveJson:(job, done) ->
+    {graphId} = job.data
+    console.log('Save Json Instagram. GraphID:', graphId)
+    # igUser.createReadStream()
+    #   .on('data', (data) ->
+    #     cb(data.value)
+    #   )
+    #   .on('error', (err) ->
+    #     cb('[USER] Oh my!', err)
+    #   )
+    #   .on('close', ->
+    #     cb('[USER] Stream closed')
+    #   )
+    #   .on('end', ->
+    #     cb('[USER] Stream ended')
+    #   )
+    done()
 
   @browserify:(job, done) ->
     {browserCoffee, bundleJs} = job.data
@@ -331,6 +348,7 @@ class UnderTheRules
     {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
     mkdirsSync(job.data.STATIC_DIR)
     mkdirsSync("#{job.data.STATIC_DIR}/files")
+    copySync(htdocsJs, staticJs)
     copySync(htdocsImg, staticImg)
     copySync(htdocsFaviconIco, staticFaviconIco)
     done()
@@ -345,8 +363,8 @@ class UnderTheRules
     done()
 
 
-# Master
 
+# Master
 if cluster.isMaster
 
 ## Kue
@@ -371,31 +389,21 @@ if cluster.isMaster
   )
   sock = shoe((stream) -> # Define API object providing integration vith dnode
     d = dnode({
-      dnodeUpdate:UnderTheRules.dnodeUpdate
-      dnodeSingUp:UnderTheRules.dnodeSingUp
-      dnodeSingIn:UnderTheRules.dnodeSingIn
-      sendCode:UnderTheRules.dnodeSendCode
-      inputMessage:UnderTheRules.inputMessage
+      dnodeUpdate:Cluster.dnodeUpdate
+      dnodeSingUp:Cluster.dnodeSingUp
+      dnodeSingIn:Cluster.dnodeSingIn
+      inputMessage:Cluster.inputMessage
     })
     d.pipe(stream).pipe(d)
   )
   sock.install(server, '/dnode')
 
-## Level. Initializing users, tokens
-  # history = levelgraph(level(LEVEL_DIR + '/history'))
   ensureDirSync(LEVEL_DIR) # Create Level Dir folder
   log = level(LEVEL_DIR + '/log', {type:'json'})
-  user = level(LEVEL_DIR + '/user', {type:'json'})
-  token = level(LEVEL_DIR + '/token', {type:'json'})
-  igUser = level(LEVEL_DIR + '/ig-user', {type:'json'})
-  igNode = level(LEVEL_DIR + '/ig-node', {type:'json'})
-  igEdge = level(LEVEL_DIR + '/ig-edge', {type:'json'})
-  igGraph = level(LEVEL_DIR + '/ig-graph', {type:'json'})
+  graph = level(LEVEL_DIR + '/graph', {type:'json'})
 
-  queue.process('createProfile', UnderTheRules.createProfile)
-  queue.process('selectProfile', UnderTheRules.selectProfile)
-  queue.process('igConnections', UnderTheRules.igConnections)
-
+  queue.process('createProfile', Cluster.createProfile)
+  queue.process('selectProfile', Cluster.selectProfile)
 
 ## Create Jobs
   staticJob = queue.create('static', {
@@ -455,9 +463,14 @@ if cluster.isMaster
 # Worker
 else
 
-  queue.process('coffeelint', UnderTheRules.coffeelint)
-  queue.process('mediaChecker', UnderTheRules.mediaChecker)
-  queue.process('static', UnderTheRules.static)
-  queue.process('pugRender', UnderTheRules.pugRender)
-  queue.process('stylusRender', UnderTheRules.stylusRender)
-  queue.process('browserify', UnderTheRules.browserify)
+  queue.process('static', Cluster.static)
+  queue.process('pugRender', Cluster.pugRender)
+  queue.process('stylusRender', Cluster.stylusRender)
+  queue.process('browserify', Cluster.browserify)
+  queue.process('mediaChecker', Cluster.mediaChecker)
+  queue.process('igSave', Cluster.igSave)
+  queue.process('igSaveJson', Cluster.igSaveJson)
+  queue.process('igSaveArray', Cluster.igSaveArray)
+  queue.process('igSaveBatch', Cluster.igSaveBatch)
+  queue.process('igConnections', Cluster.igConnections)
+  queue.process('coffeelint', Cluster.coffeelint)
