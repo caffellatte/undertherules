@@ -8,6 +8,25 @@ request     = require('request')
 domready    = require('domready')
 querystring = require('querystring')
 
+COLORS = [
+  '#e21400', '#91580f', '#f8a700', '#f78b00',  '#58dc00', '#287b00',
+  '#a8f07a', '#4ae8c4', '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
+]
+
+# Texts
+helpText = '''
+  Flexible environment for social network analysis (SNA).
+  Software provides full-cycle of retrieving and subsequent
+  processing data from the social networks.
+  Usage: /help. Contacts: /about.
+
+  Under The Rules, MIT license
+  Copyright (c) 2016 Mikhail G. Lutsenko
+  Github: https://github.com/caffellatte
+  Npm: https://www.npmjs.com/~caffellatte
+  Telegram: https://telegram.me/caffellatte'''
+
+# Welcome to
 # Prototypes
 Number::padLeft = (base, chr) ->
   len = String(base or 10).length - (String(this).length) + 1
@@ -27,13 +46,18 @@ class Browser
     guid += screen.pixelDepth or ''
     return(guid)
 
-  createDate:(ts) ->
+  createDateFullYear:(ts) ->
     d = new Date(ts)
     dformat = [
       (d.getMonth() + 1).padLeft()
       d.getDate().padLeft()
       d.getFullYear()
-    ].join('/') + ' ' + [
+    ].join('/')
+    return(dformat)
+
+  createDate:(ts) ->
+    d = new Date(ts)
+    dformat = [
       d.getHours().padLeft()
       d.getMinutes().padLeft()
       d.getSeconds().padLeft()
@@ -47,7 +71,7 @@ class Browser
       @line.value = ''
       @remote.inputMessage(@id, value, (s) =>
         node = document.createElement('LI')
-        # class notify
+        node.setAttribute('class', 'log')
         textnode = document.createTextNode(s)
         node.appendChild(textnode)
         @messages[@messages.length - 1].appendChild(node)
@@ -85,34 +109,54 @@ class Browser
     @remote = remote
     {query, path} = url.parse(window.location.href)
     {id, code, state} = querystring.parse(query)
-    if code and state
-      [first, ..., last] = state.split(',')
-      switch first
-        when 'vk'
-          sendCodeData = {
-            network:first
-            code:code
-            chatId:last
-          }
-          @remote.sendCode(sendCodeData, (s) ->
-            console.log(s)
-          )
     if id
       @remote.dnodeSingIn(id, null, (err, session) =>
         if err
           console.log(err)
         else
+          # welcomeText = document.createTextNode(helpText)
+          # welcomeLi = document.createElement('LI')
+          # text = document.createElement('CODE')
+          # node = document.createElement('LI')
+          #
+          # textnode = document.createTextNode("#{ts} > #{s.value}")
+          # text.appendChild(textnode)
+          # node.appendChild(text)
+          # @messages[@messages.length - 1].appendChild(node)
+          # #
           @id = session.graphId
-          console.log('id:', @id)
+
+          emptyHr = document.createElement('HR')
+          emptyLi = document.createElement('LI')
+          emptyLi.appendChild(emptyHr)
+          graphIdCountTextNode = document.createTextNode('')
+          graphIdidTextNode = document.createTextNode(@id)
+          graphIdA = document.createElement('A')
+          graphIdLi = document.createElement('LI')
+          graphIdA.appendChild(graphIdidTextNode)
+          graphIdA.setAttribute('href', "/?id=#{@id}")
+          graphIdLi.appendChild(graphIdA)
+          graphIdLi.appendChild(graphIdCountTextNode)
+          @messages[@messages.length - 1].appendChild(graphIdLi)
+          @messages[@messages.length - 1].appendChild(emptyLi)
           @remote.dnodeUpdate(@id, (s) =>
-            console.log(s)
-            ts = @createDate(s.key)
-            text = document.createElement('CODE')
-            node = document.createElement('LI')
-            textnode = document.createTextNode("#{ts} > #{s.value}")
-            text.appendChild(textnode)
-            node.appendChild(text)
-            @messages[@messages.length - 1].appendChild(node)
+            if s.key is 'count'
+              graphIdCountTextNode.nodeValue = " (#{s.value})"
+              emptyHr2 = document.createElement('HR')
+              emptyLi2 = document.createElement('LI')
+              emptyLi2.appendChild(emptyHr2)
+              @messages[@messages.length - 1].appendChild(emptyLi2)
+            else
+              linkA = document.createElement('A')
+              linkLi = document.createElement('LI')
+              linkCode = document.createElement('CODE')
+              linkTextNode = document.createTextNode(s.value)
+              linkA.appendChild(linkTextNode)
+              linkA.setAttribute('href', "/?id=#{s.value}")
+              linkA.setAttribute('target', '_blank')
+              linkCode.appendChild(linkA)
+              linkLi.appendChild(linkCode)
+              @messages[@messages.length - 1].appendChild(linkLi)
           )
       )
     else

@@ -22,19 +22,6 @@ cookiefile    = require('cookiefile')
 querystring   = require('querystring')
 child_process = require('child_process')
 
-# Texts
-helpText = '''
-  Flexible environment for social network analysis (SNA).
-  Software provides full-cycle of retrieving and subsequent
-  processing data from the social networks.
-  Usage: /help. Contacts: /about.
-
-  Under The Rules, MIT license
-  Copyright (c) 2016 Mikhail G. Lutsenko
-  Github: https://github.com/caffellatte
-  Npm: https://www.npmjs.com/~caffellatte
-  Telegram: https://telegram.me/caffellatte'''
-
 # Functions
 {exec} = child_process
 {writeFileSync, readFileSync} = fs
@@ -88,11 +75,6 @@ class Cluster
     graph.put(graphId, JSON.stringify(value), (err) ->
       if not err then  cb(null, value) else cb(new Error(err))
     )
-    Log = level(LEVEL_DIR + "/#{graphId}-log")
-    Log.put(value.timestamp, graphId, (err) ->
-      if err then console.log(err)
-      Log.close()
-    )
     cb(graphId)
 
   @dnodeSingIn:(graphId, passwd, cb) ->
@@ -124,7 +106,7 @@ class Cluster
           cb({key:"#{new Date()}", value:"Oh my! #{err}"})
         )
         .on('close', ->
-          cb({key:"#{new Date()}", value:count})
+          cb({key:'count', value:count})
         )
         .on('end', ->
           Log.close()
@@ -134,23 +116,21 @@ class Cluster
     if graphId and msg
       console.log("PID: #{process.pid}\t[#{graphId}]\t@inputMessage")
       Log = level(LEVEL_DIR + "/#{graphId}-log")
-      Log.put("#{new Date()}", msg, (err) ->
+      logKey = crypto.createHash('md5').update(msg).digest('hex')
+      Log.put(logKey, msg, (err) ->
         if err then console.log('Ooops!', err)
         Log.close()
       )
-      switch msg
-        when '/help' then cb(helpText)
-        else
-          rawArray = @tokenizer.tokenize(msg)
-          rawlinks = (url.parse(link) for link in rawArray)
-          links    = (link.href for link in rawlinks when link.hostname?)
-          for item in links
-            queue.create('mediaAnalyzer', {
-              title:"Media Analyzer. GraphID: #{graphId}."
-              graphId:graphId
-              itemUrl:item
-            }).save()
-            cb(item)
+      rawArray = @tokenizer.tokenize(msg)
+      rawlinks = (url.parse(link) for link in rawArray)
+      links    = (link.href for link in rawlinks when link.hostname?)
+      for item in links
+        queue.create('mediaAnalyzer', {
+          title:"Media Analyzer. GraphID: #{graphId}."
+          graphId:graphId
+          itemUrl:item
+        }).save()
+        cb(item)
 
   @mediaAnalyzer:(job, done) ->
     {graphId, itemUrl} = job.data
@@ -181,15 +161,7 @@ class Cluster
                 first:20,
                 id:id,
                 graphId:graphId
-              }).delay(500).save()
-              queue.create('igConnections', {       # Following
-                title:'Get Instagram Followers',
-                query_id:'17874545323001329',
-                after:null,
-                first:20,
-                id:id,
-                graphId:graphId
-              }).delay(1000).save()
+              }).delay(5).save()
       done()
     )
 
@@ -213,7 +185,7 @@ class Cluster
           query_id:query_id,
           id:id,
           graphId:graphId
-        }).delay(500).save()
+        }).delay(5).save()
       done()
     request(opts, requestHandler)
 
@@ -237,7 +209,7 @@ class Cluster
       first:20,
       id:id,
       graphId:graphId
-    }).delay(1500).save()
+    }).delay(5).save()
     if has_next_page
       queue.create('igConnections', {
         title:"Get Instagram: #{query_id}.",
@@ -246,13 +218,14 @@ class Cluster
         first:20,
         id:id,
         graphId:graphId
-      }).delay(1000).save()
+      }).delay(5).save()
     else
       queue.create('igSaveJson', {
         title:"Get Instagram: #{query_id}.",
-        graphId:graphId
-        # edges/nodes
-      }).delay(10000).save()
+        graphId:graphId,
+        query_id:query_id,
+        id:id
+      }).delay(1000).save()
     done()
 
   @igSaveArray:(job, done) ->
@@ -280,13 +253,13 @@ class Cluster
       edgesArray:edgesArray,
       id:id,
       graphId:graphId
-    }).attempts(5).delay(1000).save()
+    }).delay(5).save()
     queue.create('igSaveBatchNodes', {
       title:"Save Batch Nodes Instagram. ID: #{id}.",
       nodesArray:nodesArray,
       id:id,
       graphId:graphId
-    }).attempts(5).delay(1000).save()
+    }).delay(5).save()
     done()
 
   @igSaveBatchEdges:(job, done) ->
@@ -312,43 +285,50 @@ class Cluster
     )
 
   @igSaveJson:(job, done) ->
-    {graphId} = job.data
-    console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveJson")
-    Log = level(LEVEL_DIR + "/#{graphId}-log") #, {type:'json'})
-    Log.get('ready', (err, ready) ->
-      if err
-        Log.put('ready', 'one', (err) ->
-          if err then console.log('Ooops!', err)
-          Log.close()
+    {graphId, query_id, id} = job.data
+    console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveJson\t[#{query_id}]")
+    if query_id isnt '17874545323001329'
+      queue.create('igConnections', {       # Following
+        title:'Get Instagram Followers',
+        query_id:'17874545323001329',
+        after:null,
+        first:20,
+        id:id,
+        graphId:graphId
+      }).delay(5).save()
+    if query_id is '17874545323001329'
+      Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+      Nodes.createReadStream()
+        .on('data', (data) ->
+          console.log('[Nodes]', data)
         )
-        done()
-      else
-        Log.del('ready', (err, ready) ->
-          if err then console.log('Ooops!', err)
-          Log.close()
+        .on('error', (err) ->
+          console.log('[Nodes] Oh my!', err)
         )
-        console.log('Final!')
-        done()
-    )
-    # Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
-    # Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
-    # Nodes.close()
-    # Edges.close()
-    #
-    # igUser.createReadStream()
-    #   .on('data', (data) ->
-    #     cb(data.value)
-    #   )
-    #   .on('error', (err) ->
-    #     cb('[USER] Oh my!', err)
-    #   )
-    #   .on('close', ->
-    #     cb('[USER] Stream closed')
-    #   )
-    #   .on('end', ->
-    #     cb('[USER] Stream ended')
-    #   )
-    # done()
+        .on('close', ->
+          console.log('[Nodes] Stream closed')
+        )
+        .on('end', ->
+          Nodes.close()
+          console.log('[Nodes] Stream ended')
+        )
+      Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
+      Edges.createReadStream()
+        .on('data', (data) ->
+          console.log('[Edges]', data)
+        )
+        .on('error', (err) ->
+          console.log('[Edges] Oh my!', err)
+        )
+        .on('close', ->
+          console.log('[Edges] Stream closed')
+        )
+        .on('end', ->
+          Edges.close()
+          console.log('[Edges] Stream ended')
+        )
+      console.log('Final!')
+    done()
 
   @browserify:(job, done) ->
     console.log("PID: #{process.pid}\t@browserify")
