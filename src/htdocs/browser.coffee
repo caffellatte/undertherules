@@ -146,6 +146,13 @@ class Browser
               emptyLi2 = document.createElement('LI')
               emptyLi2.appendChild(emptyHr2)
               @messages[@messages.length - 1].appendChild(emptyLi2)
+              divContainer = document.createElement('DIV')
+              divContainer.setAttribute('id', 'container')
+              @messages[@messages.length - 1].appendChild(divContainer)
+              sigma.parsers.json( "/files/#{@id}.json", {
+                container:'container',
+                settings:{defaultNodeColor:'#ec5148'}
+              })
             else
               linkA = document.createElement('A')
               linkLi = document.createElement('LI')

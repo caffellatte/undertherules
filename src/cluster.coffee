@@ -141,7 +141,7 @@ class Cluster
     request(opts, (error, response, body) ->
       if not error and response.statusCode is 200
         data = JSON.parse(body)
-        {id, follows_viewer, is_private} = data.user
+        {id, follows_viewer, is_private, username} = data.user
         Users = level(LEVEL_DIR + "/#{graphId}-ig-users", {
           type:'json'
         })
@@ -160,13 +160,14 @@ class Cluster
                 after:null,
                 first:20,
                 id:id,
-                graphId:graphId
+                graphId:graphId,
+                userName:username
               }).delay(5).save()
       done()
     )
 
   @igConnections:(job, done) ->
-    {graphId, id, query_id, first, after} = job.data
+    {graphId, id, query_id, first, after, userName} = job.data
     console.log("PID: #{process.pid}\t[#{graphId}]\t@igConnections")
     params = {query_id:query_id, after:after, first:first, id:id}
     igUrl = 'https://www.instagram.com/graphql/query/'
@@ -184,13 +185,14 @@ class Cluster
           jsonData:json,
           query_id:query_id,
           id:id,
-          graphId:graphId
+          graphId:graphId,
+          userName:userName
         }).delay(5).save()
       done()
     request(opts, requestHandler)
 
   @igSave:(job, done) ->
-    {graphId, id, jsonData, query_id} = job.data
+    {graphId, id, jsonData, query_id, userName} = job.data
     console.log("PID: #{process.pid}\t[#{graphId}]\t@igSave")
     {edge_follow, edge_followed_by} = JSON.parse(jsonData).data.user
     {page_info, edges} = edge_follow or edge_followed_by
@@ -208,7 +210,8 @@ class Cluster
       after:end_cursor,
       first:20,
       id:id,
-      graphId:graphId
+      graphId:graphId,
+      userName:userName
     }).delay(5).save()
     if has_next_page
       queue.create('igConnections', {
@@ -218,6 +221,7 @@ class Cluster
         first:20,
         id:id,
         graphId:graphId
+        userName:userName
       }).delay(5).save()
     else
       queue.create('igSaveJson', {
@@ -225,11 +229,12 @@ class Cluster
         graphId:graphId,
         query_id:query_id,
         id:id
+        userName:userName
       }).delay(1000).save()
     done()
 
   @igSaveArray:(job, done) ->
-    {graphId, flag, edges, id} = job.data
+    {graphId, flag, edges, id, userName} = job.data
     console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveArray")
     if flag then target = id else source = id
     nodesArray = ({
@@ -243,8 +248,8 @@ class Cluster
       key:"#{source or e.node.id}-#{target or e.node.id}",
       value:{
         id:"#{source or e.node.id}-#{target or e.node.id}",
-        source:source or e.node.id,
-        target:target or e.node.id
+        source:"#{source or e.node.id}",
+        target:"#{target or e.node.id}"
       },
       valueEncoding:'json'
     } for e in edges)
@@ -252,13 +257,15 @@ class Cluster
       title:"Save Batch Edges Instagram. ID: #{id}.",
       edgesArray:edgesArray,
       id:id,
-      graphId:graphId
+      graphId:graphId,
+      userName:userName
     }).delay(5).save()
     queue.create('igSaveBatchNodes', {
       title:"Save Batch Nodes Instagram. ID: #{id}.",
       nodesArray:nodesArray,
       id:id,
-      graphId:graphId
+      graphId:graphId,
+      userName:userName
     }).delay(5).save()
     done()
 
@@ -285,7 +292,8 @@ class Cluster
     )
 
   @igSaveJson:(job, done) ->
-    {graphId, query_id, id} = job.data
+    {graphId, query_id, id, userName} = job.data
+    ig = id
     console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveJson\t[#{query_id}]")
     if query_id isnt '17874545323001329'
       queue.create('igConnections', {       # Following
@@ -294,40 +302,76 @@ class Cluster
         after:null,
         first:20,
         id:id,
-        graphId:graphId
+        graphId:graphId,
+        userName:userName
       }).delay(5).save()
     if query_id is '17874545323001329'
+      # console.log('\nsock:', sock, '\n')
+      graphDone = 0
+      graphJson = {
+        nodes:[]
+        edges:[]
+      }
       Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+      Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
+      nodeCount = 0
+      edgeCount = -1
+      nodeHash = {}
+      nodeHash["#{ig}"] = 'n0'
+      graphJson.nodes.push({
+        id:'n0',
+        ig:ig
+        label:userName
+      })
       Nodes.createReadStream()
         .on('data', (data) ->
-          console.log('[Nodes]', data)
+          {id, username} = JSON.parse(data.value)
+          nodeCount += 1
+          nodeHash["#{id}"] = "n#{nodeCount}"
+          graphJson.nodes.push({
+            id:nodeHash["#{id}"],
+            ig:id
+            label:username
+          })
+          console.log('[Nodes]', 'nodeHash:', nodeHash["#{id}"], 'id:', id)
         )
         .on('error', (err) ->
           console.log('[Nodes] Oh my!', err)
         )
         .on('close', ->
           console.log('[Nodes] Stream closed')
-        )
+          Edges.createReadStream()
+            .on('data', (data) ->
+              {source, target} = JSON.parse(data.value)
+              edgeCount += 1
+              console.log('[Edges] source', source, nodeHash[source])
+              console.log('[Edges] target', target, nodeHash[target])
+              graphJson.edges.push({
+                id:"e#{edgeCount}",
+                source:nodeHash["#{source}"],
+                target:nodeHash["#{target}"]
+              })
+            )
+            .on('error', (err) ->
+              console.log('[Edges] Oh my!', err)
+            )
+            .on('close', ->
+              console.log('[Edges] Stream closed')
+              _json = JSON.stringify(graphJson, null, 2)
+              _jsonName = "#{STATIC_DIR}/files/#{graphId}.json"
+              fs.writeFile(_jsonName, _json, 'utf8', (err) ->
+                if err then console.log(err) else console.log(_jsonName)
+              )
+            )
+            .on('end', ->
+              Edges.close()
+              console.log('[Edges] Stream ended')
+            )
+          )
         .on('end', ->
           Nodes.close()
           console.log('[Nodes] Stream ended')
         )
-      Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
-      Edges.createReadStream()
-        .on('data', (data) ->
-          console.log('[Edges]', data)
-        )
-        .on('error', (err) ->
-          console.log('[Edges] Oh my!', err)
-        )
-        .on('close', ->
-          console.log('[Edges] Stream closed')
-        )
-        .on('end', ->
-          Edges.close()
-          console.log('[Edges] Stream ended')
-        )
-      console.log('Final!')
     done()
 
   @browserify:(job, done) ->
