@@ -27,7 +27,8 @@ class Browser
     guid += screen.pixelDepth or ''
     return(guid)
 
-  createDate:(d = new Date()) ->
+  createDate:(ts) ->
+    d = new Date(ts)
     dformat = [
       (d.getMonth() + 1).padLeft()
       d.getDate().padLeft()
@@ -46,6 +47,7 @@ class Browser
       @line.value = ''
       @remote.inputMessage(@id, value, (s) =>
         node = document.createElement('LI')
+        # class notify
         textnode = document.createTextNode(s)
         node.appendChild(textnode)
         @messages[@messages.length - 1].appendChild(node)
@@ -102,7 +104,16 @@ class Browser
         else
           @id = session.graphId
           console.log('id:', @id)
-          @update(@remote)
+          @remote.dnodeUpdate(@id, (s) =>
+            console.log(s)
+            ts = @createDate(s.key)
+            text = document.createElement('CODE')
+            node = document.createElement('LI')
+            textnode = document.createTextNode("#{ts} > #{s.value}")
+            text.appendChild(textnode)
+            node.appendChild(text)
+            @messages[@messages.length - 1].appendChild(node)
+          )
       )
     else
       guid = @createGuid()
@@ -113,16 +124,6 @@ class Browser
           redirectLink = "http://192.168.8.100:8294/?id=#{session.graphId}"
           window.location.assign(redirectLink)
       )
-
-  update:(remote) =>
-    remote.dnodeUpdate(@id, (s) =>
-      text = document.createElement('CODE')
-      node = document.createElement('LI')
-      textnode = document.createTextNode(s)
-      text.appendChild(textnode)
-      node.appendChild(text)
-      @messages[@messages.length - 1].appendChild(node)
-    )
 
   constructor:(Dnode) ->
     @line     = document.getElementById('line')
