@@ -320,8 +320,11 @@ class Cluster
       nodeHash["#{ig}"] = 'n0'
       graphJson.nodes.push({
         id:'n0',
-        ig:ig
-        label:userName
+        ig:ig,
+        label:userName,
+        x:0,
+        y:0,
+        size:9
       })
       Nodes.createReadStream()
         .on('data', (data) ->
@@ -330,8 +333,11 @@ class Cluster
           nodeHash["#{id}"] = "n#{nodeCount}"
           graphJson.nodes.push({
             id:nodeHash["#{id}"],
-            ig:id
-            label:username
+            ig:id,
+            label:username,
+            x:Math.floor(Math.random() * (20 - 1) + 1),
+            y:Math.floor(Math.random() * (20 - 1) + 1),
+            size:Math.floor(Math.random() * (10 - 1) + 1)
           })
           console.log('[Nodes]', 'nodeHash:', nodeHash["#{id}"], 'id:', id)
         )

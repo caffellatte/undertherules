@@ -172,7 +172,7 @@ class Browser
         if err
           console.log(err)        # return Dnode.end()
         else
-          redirectLink = "http://192.168.8.100:8294/?id=#{session.graphId}"
+          redirectLink = "http://192.168.1.8:8294/?id=#{session.graphId}"
           window.location.assign(redirectLink)
       )
 
