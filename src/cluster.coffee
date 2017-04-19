@@ -149,6 +149,11 @@ class Cluster
           if err then console.log('Ooops!', err)
           Users.close()
         )
+        Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+        Nodes.put("#{id}", data.user, {valueEncoding:'json'}, (err) ->
+          if err then console.log('Ooops!', err)
+          Nodes.close()
+        )
         switch "#{is_private}#{follows_viewer}"
           when 'truefalse'
             return
@@ -314,18 +319,9 @@ class Cluster
       }
       Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
       Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
-      nodeCount = 0
+      nodeCount = -1
       edgeCount = -1
       nodeHash = {}
-      nodeHash["#{ig}"] = 'n0'
-      graphJson.nodes.push({
-        id:'n0',
-        ig:ig,
-        label:userName,
-        x:0,
-        y:0,
-        size:9
-      })
       Nodes.createReadStream()
         .on('data', (data) ->
           {id, username} = JSON.parse(data.value)
