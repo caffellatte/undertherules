@@ -150,6 +150,7 @@ class Cluster
           Users.close()
         )
         Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+        data.user.color = '#000000'
         Nodes.put("#{id}", data.user, {valueEncoding:'json'}, (err) ->
           if err then console.log('Ooops!', err)
           Nodes.close()
@@ -233,7 +234,7 @@ class Cluster
         title:"Get Instagram: #{query_id}.",
         graphId:graphId,
         query_id:query_id,
-        id:id
+        id:id,
         userName:userName
       }).delay(1000).save()
     done()
@@ -324,16 +325,18 @@ class Cluster
       nodeHash = {}
       Nodes.createReadStream()
         .on('data', (data) ->
-          {id, username} = JSON.parse(data.value)
+          {id, username, color} = JSON.parse(data.value)
+          if not color? then coor = '#ec5148s'
           nodeCount += 1
           nodeHash["#{id}"] = "n#{nodeCount}"
           graphJson.nodes.push({
             id:nodeHash["#{id}"],
             ig:id,
             label:username,
-            x:Math.floor(Math.random() * (20 - 1) + 1),
-            y:Math.floor(Math.random() * (20 - 1) + 1),
-            size:Math.floor(Math.random() * (10 - 1) + 1)
+            x:Math.floor(Math.random() * (2000 - 1) + 1),
+            y:Math.floor(Math.random() * (2000 - 1) + 1),
+            size:Math.floor(Math.random() * (10 - 1) + 1),
+            color:color
           })
           console.log('[Nodes]', 'nodeHash:', nodeHash["#{id}"], 'id:', id)
         )
@@ -509,7 +512,11 @@ if cluster.isMaster
       process.exit()
       return
     if options.cleanup
-      removeSync(STATIC_DIR)
+      console.log('Buy!')
+      # removeSync(indexHtml)
+      # removeSync(styleCss)
+      # removeSync(bundleJs)
+      # removeSync(STATIC_DIR)
 
 ## Do something when app is closing or ctrl+c event or uncaught exceptions
   process.on('exit', exitHandler.bind(null, {cleanup:true}))

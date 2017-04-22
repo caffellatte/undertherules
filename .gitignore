@@ -4,3 +4,4 @@ node_modules
 .db
 .env
 cookie.txt
+static
