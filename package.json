@@ -17,6 +17,8 @@
     "pug": "^2.0.0-beta6",
     "request": "^2.79.0",
     "shoe": "0.0.15",
+    "sockjs": "^0.3.18",
+    "sockjs-client": "^1.1.2",
     "stylus": "^0.54.5"
   },
   "devDependencies": {

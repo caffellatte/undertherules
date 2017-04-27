@@ -5,49 +5,56 @@ full-cycle of retrieving and subsequent processing data from the social networks
 
 > parsing & analyzing social networks data.
 
-The aim of the development of the automated system is to replace the existing
-solutions a new, more flexible tool, adapted to the needs of the researcher.
-Develops products will be endowed into **full-stack** solution written using
-Coffee-script both on server & client sides. Current state: `development`.
+The aim of the project is creating automated system to replace the existing
+solutions. We develop a new, more flexible tool, adapted to the needs of the
+researcher. Develops products will be endowed into **full-stack** solution
+written using Coffee-script both on server & client sides. Current state: `development`.
 
-## Architecture
-
-### Main modules
+## Architecture (main modules)
 
 | Section | Technology | Functions |
 | ------------- | ---------- | -------- |
-| Runtime environment | Node.js | JavaScript interpreter (engine) |
-| In-memory data storage | Redis | Key-value data structure server |  
-| Main language | CoffeeScript | Syntax sugar that compiles into JavaScript |
-| Queue server | Kue |  Priority job queue backed by Redis |
-| Database storage | LevelUP | Node.js-style LevelDB wrapper |
-| Graph database interface | LevelGraph | Graph database (hexastore approach) |
-| RPC system  | Dnode | Asynchronous socket service via sockjs |
-| Clustering tool | Node Foreman | Manager for Procfile-based applications |
+| Runtime environment | Node.js | JavaScript interpreter (engine) | [->]((https://nodejs.org/) |
+| In-memory data storage | Redis | Key-value data structure server | [->]((https://redis.io/) |
+| Main language | CoffeeScript | Syntax sugar that compiles into JavaScript | [->]((https://coffeescript.org/) |
+| Queue server | Kue |  Priority job queue backed by Redis | [->]((https://github.com/Automattic/kue) |
+| Database storage | LevelUP | Node.js-style LevelDB wrapper | [->](https://github.com/Level/levelup) |
+| RPC system  | Dnode | Asynchronous socket service via sockjs | [->](https://www.npmjs.com/package/dnode) |
+| Clustering tool | Node Foreman | Manager for Procfile-based applications | [->](https://www.npmjs.com/package/foreman) |
+| Graph Drawing | Sigma | Visual JavaScript library | [->](http://sigmajs.org)|
 
 ## Installation
 
-### .env
+### Node Foreman environment configuration **.env**
 
-    PANEL_HOST="****"
-    PANEL_PORT="****"
-    BOT_PANEL_HOST="****"
-    BOT_PANEL_PORT="****"
-    KUE_HOST="****"
-    KUE_PORT="****"
-    LEVEL_DIR="~/node_modules/undertherules/.db"
-    STATIC_DIR="~/node_modules/undertherules/static"
-    HTDOCS_DIR="~/node_modules/undertherules/src/htdocs"
-    CORE_DIR="~/node_modules/undertherules/src"
-    TELEGRAM_TOKEN="****"
+    #  KUE Task Processing Server Address (HOST/PORT)
+    KUE_HOST="127.0.0.1"
+    KUE_PORT="8816"
+
+    # DNODE Server Address (HOST/PORT)
+    PANEL_HOST="127.0.0.1"
+    PANEL_PORT="8294"
+
+    # VK.COM application configuration
     VK_CLIENT_ID="5787387"
-    VK_CLIENT_SECRET="****"
+    VK_CLIENT_SECRET="dpX9fyBrPWyVcOZAE6Hv"
     VK_DISPLAY="mobile"
-    VK_SCOPE="friends,pages,wall,ads,offline,groups,stats,email,market"
     VK_VERSION="5.62"
-    TELEGRAM_TOKEN="****"
+    VK_SCOPE="friends,pages,wall,ads,offline,groups,stats,email,market"
 
-### Procfile
+    # Directories Paths
+    LEVEL_DIR="/home/bot/undertherules/.db"
+    STATIC_DIR="/home/bot/undertherules/static"
+    HTDOCS_DIr="/home/bot/undertherules/src/htdocs"
+    CORE_DIR="/home/bot/node_modules/undertherules/src"
+
+    # Instagram Cookie File
+    IG_COOKIE="/home/bot/undertherules/cookie.txt"
+
+    # Telegram Token
+    TELEGRAM_TOKEN="270400291:AAGUzmd55Pu8sRHL4mkyat7K2ezlh4NNebo"
+
+### Node Foreman process list configuration **Procfile**
 
     cluster: coffee ./src/cluster.coffee
 
@@ -55,12 +62,14 @@ Coffee-script both on server & client sides. Current state: `development`.
 
     useradd --home-dir /home/bot --create-home --shell /bin/bash bot
     passwd bot
+
+
     usermod -g staff bot **optional**
     apt-get update
-    apt-get install -y curl build-essential python htop mc tree whois postfix mailutils
+    apt-get install -y curl build-essential python htop mc tree whois wget
     apt-get upgrade -y
 
-### Install Node.js global packages
+### Install Node.js global install
 
     npm install -g coffee-script coffee-jshint foreman
 
@@ -79,32 +88,19 @@ Run application with Node Foreman:
 ## Links
 
 - [Telegram messenger CLI](https://github.com/vysheng/tg) - Command-line interface for Telegram. Uses readline interface
-- [Dnode](https://www.npmjs.com/package/dnode)
-- [Node Foreman](https://www.npmjs.com/package/foreman)
 - [Markdown Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
 - [Classes](https://arcturo.github.io/library/coffeescript/03_classes.html) from The Little Book on CoffeeScript
 - Why Invoke [apply](http://stackoverflow.com/questions/5936604/) instead of calling function directly?
 - How to install [node and npm](https://gist.github.com/isaacs/579814) without sudo
 - [Redis](https://redis.io/topics/quickstart) on Debian (quick start)
 - [Redis](https://vk.cc/60LXaa) on Mac OS X via Homebrew
-- [CoffeeScript](http://coffeescript.org) is a little language that compiles into JavaScript
 - [opendkim](https://wiki.debian.org/opendkim) Postfix and opendkim on Debian
-
-## Contribution
-
-To release a new version:
-
-    git checkout master
-    npm version <major|minor|patch>
-    git push && git push --tags
-    npm publish
 
 ## Thanks
 
 Romanovsky P. (Socialist Group); Ashomko A. (TigerMilk); Pivkin P. (BuzzLike);
 Korotun V. (BuzzLike); Grigoriev E. (Esprite Games); Bogomolov A. (NMO);
 Akhmetov A. (RTA Moscow) ; Maas E. (TASS News Agency).
-
 
 ## License
 
