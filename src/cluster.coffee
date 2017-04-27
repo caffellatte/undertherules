@@ -37,6 +37,7 @@ numCPUs = require('os').cpus().length
 cookieFile  = new CookieMap(IG_COOKIE)
 CookieFile  = cookieFile.toRequestHeader()
 
+console.log(HTDOCS_DIR)
 # Files
 browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
 clusterCoffee     = "#{CORE_DIR}/cluster.coffee"
@@ -513,10 +514,7 @@ if cluster.isMaster
       return
     if options.cleanup
       console.log('Buy!')
-      # removeSync(indexHtml)
-      # removeSync(styleCss)
-      # removeSync(bundleJs)
-      # removeSync(STATIC_DIR)
+      removeSync(STATIC_DIR)
 
 ## Do something when app is closing or ctrl+c event or uncaught exceptions
   process.on('exit', exitHandler.bind(null, {cleanup:true}))
