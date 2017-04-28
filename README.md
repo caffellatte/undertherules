@@ -14,10 +14,10 @@ written using Coffee-script both on server & client sides. Current state: `devel
 
 | Section | Technology | Functions |
 | ------------- | ---------- | -------- |
-| Runtime environment | Node.js | JavaScript interpreter (engine) | [link]((https://nodejs.org/) |
-| In-memory data storage | Redis | Key-value data structure server | [link]((https://redis.io/) |
-| Main language | CoffeeScript | Syntax sugar that compiles into JavaScript | [link]((https://coffeescript.org/) |
-| Queue server | Kue |  Priority job queue backed by Redis | [link]((https://github.com/Automattic/kue) |
+| Runtime environment | Node.js | JavaScript interpreter (engine) | [link](https://nodejs.org/) |
+| In-memory data storage | Redis | Key-value data structure server | [link](https://redis.io/) |
+| Main language | CoffeeScript | Syntax sugar that compiles into JavaScript | [link](https://coffeescript.org/) |
+| Queue server | Kue |  Priority job queue backed by Redis | [link](https://github.com/Automattic/kue) |
 | Database storage | LevelUP | Node.js-style LevelDB wrapper | [link](https://github.com/Level/levelup) |
 | RPC system  | Dnode | Asynchronous socket service via sockjs | [link](https://www.npmjs.com/package/dnode) |
 | Clustering tool | Node Foreman | Manager for Procfile-based applications | [link](https://www.npmjs.com/package/foreman) |

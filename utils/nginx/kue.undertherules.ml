@@ -1,6 +1,6 @@
 # the IP(s) on which your node server is running. I chose port 8294.
 upstream app_kue_undertherules {
-    server 0.0.0.0:8816;
+    server 127.0.0.1:8816;
     keepalive 8;
 }
 
