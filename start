@@ -1,0 +1,3 @@
+#!/bin/bash
+
+nohup nf start >log.out 2>&1 &

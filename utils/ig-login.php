@@ -3,8 +3,8 @@
 
 $username = $argv[1];
 $password = $argv[2];
-$useragent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/50.0.2661.102 Chrome/50.0.2661.102 Safari/537.36";
-$cookie="../cookie.txt"; # $username.".txt";
+$useragent = "Mozilla/5.0"; # "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/50.0.2661.102 Chrome/50.0.2661.102 Safari/537.36";
+$cookie = "../cookie.txt"; # $username.".txt";
 
 @unlink(dirname(__FILE__)."/".$cookie);
 

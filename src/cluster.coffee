@@ -18,7 +18,6 @@ cluster       = require('cluster')
 request       = require('request')
 coffeeify     = require('coffeeify')
 browserify    = require('browserify')
-cookiefile    = require('cookiefile')
 querystring   = require('querystring')
 child_process = require('child_process')
 
@@ -29,15 +28,9 @@ child_process = require('child_process')
 
 # Environment
 numCPUs = require('os').cpus().length
-{CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR} = process.env
+{CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR, USER_AGENT} = process.env
 {KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST, IG_COOKIE} = process.env
 
-# Request Cookies
-{CookieMap} = cookiefile
-cookieFile  = new CookieMap(IG_COOKIE)
-CookieFile  = cookieFile.toRequestHeader()
-
-console.log(HTDOCS_DIR)
 # Files
 browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
 clusterCoffee     = "#{CORE_DIR}/cluster.coffee"
@@ -135,13 +128,13 @@ class Cluster
 
   @mediaAnalyzer:(job, done) ->
     {graphId, itemUrl} = job.data
-    opts = {
-      url:"#{itemUrl}/?__a=1",
-      headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}
-    }
-    request(opts, (error, response, body) ->
-      if not error and response.statusCode is 200
-        data = JSON.parse(body)
+    command = "curl -X GET '#{itemUrl}/?__a=1' --verbose "
+    command += "--user-agent #{USER_AGENT} --cookie #{IG_COOKIE} "
+    command += "--cookie-jar #{IG_COOKIE}"
+    exec(command, (error, stdout, stderr) ->
+      if stdout
+        console.log("Received #{stdout.length} bytes.")
+        data = JSON.parse(stdout)
         {id, follows_viewer, is_private, username} = data.user
         Users = level(LEVEL_DIR + "/#{graphId}-ig-users", {
           type:'json'
@@ -156,6 +149,7 @@ class Cluster
           if err then console.log('Ooops!', err)
           Nodes.close()
         )
+        console.log("#{is_private}#{follows_viewer}")
         switch "#{is_private}#{follows_viewer}"
           when 'truefalse'
             return
@@ -170,6 +164,10 @@ class Cluster
                 graphId:graphId,
                 userName:username
               }).delay(5).save()
+      else
+        console.log(error)
+      if stderr
+        console.error(stderr)
       done()
     )
 
@@ -179,24 +177,25 @@ class Cluster
     params = {query_id:query_id, after:after, first:first, id:id}
     igUrl = 'https://www.instagram.com/graphql/query/'
     igUrl += "?#{querystring.stringify(params)}"
-    opts = {
-      url:igUrl,
-      headers:{'User-Agent':'Mozilla/5.0', 'Cookie':CookieFile}
-    }
-    # console.log(igUrl)
-    requestHandler = (error, response, json) ->
-      if not error and response.statusCode is 200
-        # console.log(json)
+    command = "curl -X GET '#{igUrl}' --verbose "
+    command += "--user-agent #{USER_AGENT} --cookie #{IG_COOKIE} "
+    command += "--cookie-jar #{IG_COOKIE}"
+    console.log('command:', command)
+    exec(command, (error, stdout, stderr) ->
+      if stdout
+        console.log("Received #{stdout.length} bytes.")
         queue.create('igSave', {
           title:"Save Instagram: #{query_id}.",
-          jsonData:json,
+          jsonData:stdout,
           query_id:query_id,
           id:id,
           graphId:graphId,
           userName:userName
         }).delay(5).save()
+      else
+        console.log(error)
       done()
-    request(opts, requestHandler)
+    )
 
   @igSave:(job, done) ->
     {graphId, id, jsonData, query_id, userName} = job.data
@@ -218,30 +217,15 @@ class Cluster
       first:20,
       id:id,
       graphId:graphId,
-      userName:userName
+      userName:userName,
+      has_next_page:has_next_page,
+      end_cursor:end_cursor
     }).delay(5).save()
-    if has_next_page
-      queue.create('igConnections', {
-        title:"Get Instagram: #{query_id}.",
-        query_id:query_id,
-        after:end_cursor,
-        first:20,
-        id:id,
-        graphId:graphId
-        userName:userName
-      }).delay(5).save()
-    else
-      queue.create('igSaveJson', {
-        title:"Get Instagram: #{query_id}.",
-        graphId:graphId,
-        query_id:query_id,
-        id:id,
-        userName:userName
-      }).delay(1000).save()
     done()
 
   @igSaveArray:(job, done) ->
-    {graphId, flag, edges, id, userName} = job.data
+    {graphId, flag, edges, id, userName, has_next_page, end_cursor} = job.data
+    {query_id} = job.data
     console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveArray")
     if flag then target = id else source = id
     nodesArray = ({
@@ -260,42 +244,38 @@ class Cluster
       },
       valueEncoding:'json'
     } for e in edges)
-    queue.create('igSaveBatchEdges', {
-      title:"Save Batch Edges Instagram. ID: #{id}.",
-      edgesArray:edgesArray,
-      id:id,
-      graphId:graphId,
-      userName:userName
-    }).delay(5).save()
-    queue.create('igSaveBatchNodes', {
-      title:"Save Batch Nodes Instagram. ID: #{id}.",
-      nodesArray:nodesArray,
-      id:id,
-      graphId:graphId,
-      userName:userName
-    }).delay(5).save()
-    done()
-
-  @igSaveBatchEdges:(job, done) ->
-    {nodesArray, edgesArray, graphId} = job.data
-    console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveBatchEdges")
+    console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveArray\tEdges")
     Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
     Edges.batch(edgesArray, (err) ->
       if err then console.log('Ooops!', err)
-      console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveBatchEdges\t[OK]")
+      console.log("PID: #{process.pid}\t[#{graphId}]\tEdges\t[OK]")
       Edges.close()
-      done()
-    )
-
-  @igSaveBatchNodes:(job, done) ->
-    {nodesArray, graphId} = job.data
-    console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveBatchNodes")
-    Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
-    Nodes.batch(nodesArray, (err) ->
-      if err then console.log('Ooops!', err)
-      console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveBatchNodes\t[OK]")
-      Nodes.close()
-      done()
+      console.log("PID: #{process.pid}\t[#{graphId}]\t@igSaveArray\tNodes")
+      Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
+      Nodes.batch(nodesArray, (err) ->
+        if err then console.log('Ooops!', err)
+        console.log("PID: #{process.pid}\t[#{graphId}]\tNodes\t[OK]")
+        Nodes.close()
+        if has_next_page
+          queue.create('igConnections', {
+            title:"Get Instagram: #{query_id}.",
+            query_id:query_id,
+            after:end_cursor,
+            first:20,
+            id:id,
+            graphId:graphId
+            userName:userName
+          }).delay(5).save()
+        else
+          queue.create('igSaveJson', {
+            title:"Get Instagram: #{query_id}.",
+            graphId:graphId,
+            query_id:query_id,
+            id:id,
+            userName:userName
+          }).delay(5).save()
+        done()
+      )
     )
 
   @igSaveJson:(job, done) ->
@@ -312,6 +292,7 @@ class Cluster
         graphId:graphId,
         userName:userName
       }).delay(5).save()
+      done()
     if query_id is '17874545323001329'
       # console.log('\nsock:', sock, '\n')
       graphDone = 0
@@ -320,7 +301,6 @@ class Cluster
         edges:[]
       }
       Nodes = level(LEVEL_DIR + "/#{graphId}-ig-nodes", {type:'json'})
-      Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
       nodeCount = -1
       edgeCount = -1
       nodeHash = {}
@@ -346,6 +326,7 @@ class Cluster
         )
         .on('close', ->
           console.log('[Nodes] Stream closed')
+          Edges = level(LEVEL_DIR + "/#{graphId}-ig-edges", {type:'json'})
           Edges.createReadStream()
             .on('data', (data) ->
               {source, target} = JSON.parse(data.value)
@@ -370,15 +351,15 @@ class Cluster
               )
             )
             .on('end', ->
-              Edges.close()
               console.log('[Edges] Stream ended')
+              Edges.close()
+              done()
             )
           )
         .on('end', ->
-          Nodes.close()
           console.log('[Nodes] Stream ended')
+          Nodes.close()
         )
-    done()
 
   @browserify:(job, done) ->
     console.log("PID: #{process.pid}\t@browserify")
@@ -538,5 +519,3 @@ else
   queue.process('igSaveArray', Cluster.igSaveArray)
   queue.process('igConnections', Cluster.igConnections)
   queue.process('coffeelint', Cluster.coffeelint)
-  queue.process('igSaveBatchNodes', Cluster.igSaveBatchNodes)
-  queue.process('igSaveBatchEdges', Cluster.igSaveBatchEdges)
