@@ -23,5 +23,8 @@ server {
 
       proxy_pass http://app_kue_undertherules/;
       proxy_redirect off;
+
+      auth_basic "Restricted";
+      auth_basic_user_file /etc/nginx/.htpasswd;
     }
  }
