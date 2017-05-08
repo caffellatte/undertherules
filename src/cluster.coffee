@@ -1,69 +1,123 @@
 # cluster.coffee
 
-# Modules
+# Modules - Модули
+# Библиотека Полезных Функций и Операций
 _             = require('lodash')
+# Работа с Файловой Системой
 fs            = require('fs-extra')
+# Взаимодействие с Операционной Системой
 os            = require('os')
+# Автоматизированная Очередь
 kue           = require('kue')
+# Перевод из *.pug в *.html
 pug           = require('pug')
+# Форматирование и Парсинг URL ссылок
 url           = require('url')
+# HTTP/HTTPS Сервер
 http          = require('http')
+# Прокси
 shoe          = require('shoe')
+# Сокет Клиент-Сервер для связи с браузером Клиента
 dnode         = require('dnode')
+# База Данных
 level         = require('levelup')
+# Криптографические функции (хеш-функции)
 crypto        = require('crypto')
+# Перевд из  *.styl в *.css
 stylus        = require('stylus')
+# Библиотека для обработки текста
 natural       = require('natural')
+# Управление процессами
 cluster       = require('cluster')
+# HTTP/HTTPS запросы
 request       = require('request')
+# Перевод из *.coffee в *.js
 coffeeify     = require('coffeeify')
+# Загрузчик библиотек в браузер клиента
 browserify    = require('browserify')
+# Форматирование и Разбор параметров URL-ссылок (транспайлер)
 querystring   = require('querystring')
+# Создание дочерних процессов
 child_process = require('child_process')
 
 # Functions
+# Функйия для Выполнение команд средствами ОС в отдельном процессе
 {exec} = child_process
+# Синхронное чтение и запись в файл
 {writeFileSync, readFileSync} = fs
+# Удаление, Создание, Коприрование и Проверка на существование Директорий.
 {removeSync, mkdirsSync, copySync, ensureDirSync} = fs
 
 # Environment
+# Количество Процессорв
 numCPUs = require('os').cpus().length
+# Загрузка значений из файла конфигурации окружения .env (Часть 1)
 {CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR, USER_AGENT} = process.env
+# Загрузка значений из файла конфигурации окружения .env (Часть 2)
 {KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST, IG_COOKIE} = process.env
 
 # Files
-browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
+
+# Файл выполняемый на стороне сервера с помощь JavaScript движка NodeJs
 clusterCoffee     = "#{CORE_DIR}/cluster.coffee"
+
+# -- Дирректория для хранения сторонних библиотек для исполнения в браузере -- #
+# Генерируемые файлы и директории для загрузки на сторону клиент брауер #
 staticJs          = "#{STATIC_DIR}/js"
+# Дирректория с Картинками
 staticImg         = "#{STATIC_DIR}/img"
+# Иконка для браузера
 staticFaviconIco  = "#{STATIC_DIR}/favicon.ico"
+# Динамически генирируемый файл с базовым  DOM дерево с помощью pug
 indexHtml         = "#{STATIC_DIR}/index.html"
+# Динамически генирируемый файл с Каскадные Таблицы Стилей с помощью stylus
 styleCss          = "#{STATIC_DIR}/style.css"
+# Динамически генирируемый файл с помощью coffeeify и browserify
 bundleJs          = "#{STATIC_DIR}/bundle.js"
+# -------------------------------------------------------------------------- #
+
+# ------------- Исходные Файлы для Генерации Клиентского Кода --------------- #
+# Директория содержит сторонние библиотеки для выполнения на стороне браузера
 htdocsJs          = "#{HTDOCS_DIR}/js"
+# Дирректория с Картинками
 htdocsImg         = "#{HTDOCS_DIR}/img"
+# Файл для исполнения браузером клиента (Исходный код)
+browserCoffee     = "#{HTDOCS_DIR}/browser.coffee"
+# Иконка для браузера
 htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico"
+# Исходники для генерации  *.html файлов
 templatePug       = "#{HTDOCS_DIR}/template.pug"
+# Исходники для генерации  *.css файлов
 styleStyl         = "#{HTDOCS_DIR}/style.styl"
 
 # Queue
+# Создание Экземпляра (Объект) для Управления Автоматизированной Очередью *KUE*
 queue = kue.createQueue()
 
 # Cluster
 class Cluster
-
+  # Поиск строки с помощью регулярного выражения и библиотеки natural
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
-
+  # Функция Начала Регистрации Нового Пользователя (Dnode API)
   @dnodeSingUp:(guid, cb) ->
     console.log("PID: #{process.pid}\t{#{guid}}\t@dnodeSingUp")
+    # Проверка аргумента cb с помощью  -typeof - является ли он функцией
     if typeof cb isnt 'function'
+      # если не функция завершит выполнеие задачи
       return
+    # Проверка guid на существование если нет, то возвращаем в cb ощибку
     if not guid? then cb('Error!')
+    # Генерируем хэш с помощью библиотеки crypto (md5) берем хеш от guid
     graphId = crypto.createHash('md5').update("#{guid}}").digest('hex')
+    # создаем переменную value
     value = {
+      #
       graphId:graphId
+      #
       guid:guid
+      #
       timestamp:"#{new Date()}"
+      #
       ready:0
     }
     graph.put(graphId, JSON.stringify(value), (err) ->
