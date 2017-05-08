@@ -46,7 +46,7 @@ bundleJs          = "#{STATIC_DIR}/bundle.js" # coffeeify и browserify
 # ------------- Исходные Файлы для Генерации Клиентского Кода --------------- #
 htdocsJs          = "#{HTDOCS_DIR}/js" # Сторонние библиотеки
 htdocsImg         = "#{HTDOCS_DIR}/img" # Дирректория с Картинками
-browserCoffee     = "#{HTDOCS_DIR}/browser.coffee" # Клиент (Исходник)
+browserCoffee     = "#{HTDOCS_DIR}/client.coffee" # Клиент (Исходник)
 htdocsFaviconIco  = "#{HTDOCS_DIR}/img/favicon.ico" # Иконка для браузера
 templatePug       = "#{HTDOCS_DIR}/template.pug" # Исходники для  *.html файлов
 styleStyl         = "#{HTDOCS_DIR}/style.styl" # Исходники для  *.css файлов
@@ -61,7 +61,7 @@ class Server
   # Поиск строки с помощью регулярного выражения и библиотеки natural
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
 
-  @inputMessage:(msg, cb) =>
+  @inputMessage:(id, msg, cb) =>
     cb(msg)
 
   @browserify:(job, done) ->
@@ -208,8 +208,8 @@ if cluster.isMaster
 # Worker
 else
 
-  queue.process('static', Cluster.static)
-  queue.process('pugRender', Cluster.pugRender)
-  queue.process('stylusRender', Cluster.stylusRender)
-  queue.process('browserify', Cluster.browserify)
-  queue.process('coffeelint', Cluster.coffeelint)
+  queue.process('static', Server.static)
+  queue.process('pugRender', Server.pugRender)
+  queue.process('stylusRender', Server.stylusRender)
+  queue.process('browserify', Server.browserify)
+  queue.process('coffeelint', Server.coffeelint)

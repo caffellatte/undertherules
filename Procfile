@@ -1,1 +1,1 @@
-cluster: coffee ./src/cluster.coffee
+cluster: coffee ./src/server.coffee
