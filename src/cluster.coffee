@@ -1,18 +1,12 @@
 # cluster.coffee
 
 # Modules - Модули
-# Библиотека Полезных Функций и Операций
-_             = require('lodash')
-# Работа с Файловой Системой
-fs            = require('fs-extra')
-# Взаимодействие с Операционной Системой
-os            = require('os')
-# Автоматизированная Очередь
-kue           = require('kue')
-# Перевод из *.pug в *.html
-pug           = require('pug')
-# Форматирование и Парсинг URL ссылок
-url           = require('url')
+_             = require('lodash')   # Библиотека Полезных Функций и Операций
+fs            = require('fs-extra') # Работа с Файловой Системой
+os            = require('os')       # Взаимодействие с Операционной Системой
+kue           = require('kue')      # Автоматизированная Очередь
+pug           = require('pug')      # Перевод из *.pug в *.html
+url           = require('url')      # Форматирование и Парсинг URL ссылок 
 # HTTP/HTTPS Сервер
 http          = require('http')
 # Прокси
