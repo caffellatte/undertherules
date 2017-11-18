@@ -1,38 +1,25 @@
 # cluster.coffee
 
 # Modules - Модули
-_             = require('lodash')   # Библиотека Полезных Функций и Операций
+_             = require('lodash') # Библиотека Полезных Функций и Операций
 fs            = require('fs-extra') # Работа с Файловой Системой
-os            = require('os')       # Взаимодействие с Операционной Системой
-kue           = require('kue')      # Автоматизированная Очередь
-pug           = require('pug')      # Перевод из *.pug в *.html
-url           = require('url')      # Форматирование и Парсинг URL ссылок 
-# HTTP/HTTPS Сервер
-http          = require('http')
-# Прокси
-shoe          = require('shoe')
-# Сокет Клиент-Сервер для связи с браузером Клиента
-dnode         = require('dnode')
-# База Данных
-level         = require('levelup')
-# Криптографические функции (хеш-функции)
-crypto        = require('crypto')
-# Перевд из  *.styl в *.css
-stylus        = require('stylus')
-# Библиотека для обработки текста
-natural       = require('natural')
-# Управление процессами
-cluster       = require('cluster')
-# HTTP/HTTPS запросы
-request       = require('request')
-# Перевод из *.coffee в *.js
-coffeeify     = require('coffeeify')
-# Загрузчик библиотек в браузер клиента
-browserify    = require('browserify')
-# Форматирование и Разбор параметров URL-ссылок (транспайлер)
-querystring   = require('querystring')
-# Создание дочерних процессов
-child_process = require('child_process')
+os            = require('os') # Взаимодействие с Операционной Системой
+kue           = require('kue') # Автоматизированная Очередь
+pug           = require('pug') # Перевод из *.pug в *.html
+url           = require('url') # Форматирование и Парсинг URL ссылок
+http          = require('http') # HTTP/HTTPS Сервер
+shoe          = require('shoe') # Прокси
+dnode         = require('dnode') # Сокет для связи с Клиент-Сервер
+level         = require('levelup') # База Данных
+crypto        = require('crypto') # Криптографические функции (и хеш-функции)
+stylus        = require('stylus') # Перевд из  *.styl в *.css
+natural       = require('natural') # Библиотека для обработки текста
+cluster       = require('cluster') # Управление процессами
+request       = require('request') # HTTP/HTTPS запросы
+coffeeify     = require('coffeeify') # Перевод из *.coffee в *.js
+browserify    = require('browserify') # Загрузчик библиотек в браузер
+querystring   = require('querystring')  # Обработка URL-ссылок
+child_process = require('child_process') # Создание дочерних процессов
 
 # Functions
 # Функйия для Выполнение команд средствами ОС в отдельном процессе

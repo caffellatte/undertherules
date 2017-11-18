@@ -71,7 +71,8 @@ written using Coffee-script both on server & client sides. Current state: `devel
 
 ### Install Node.js global install
 
-    npm install -g coffee-script coffee-jshint foreman
+    npm install -g coffeescript@2
+    npm install -g coffee-jshint foreman
 
 ### Clone package from github
 
