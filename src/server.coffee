@@ -29,9 +29,23 @@ child_process = require('child_process') # Создание дочерних п�
 # Environment - Окружение
 numCPUs = require('os').cpus().length # Количество Процессорв
 # Загрузка значений из файла конфигурации окружения .env (Часть 1)
-{CORE_DIR, LEVEL_DIR, STATIC_DIR, HTDOCS_DIR, USER_AGENT} = process.env
+CORE_DIR   = process.env.CORE_DIR
+LEVEL_DIR  = process.env.LEVEL_DIR
+STATIC_DIR = process.env.STATIC_DIR
+HTDOCS_DIR = process.env.HTDOCS_DIR
+USER_AGENT = process.env.USER_AGENT
+KUE_PORT   = process.env.KUE_PORT
+KUE_HOST   = process.env.KUE_HOST
+PANEL_PORT = process.env.PANEL_PORT
+PANEL_HOST = process.env.PANEL_HOST
+IG_COOKIE  = process.env.IG_COOKIE
+DOMAIN     = process.env.DOMAIN
 # Загрузка значений из файла конфигурации окружения .env (Часть 2)
-{KUE_PORT, KUE_HOST, PANEL_PORT, PANEL_HOST, IG_COOKIE} = process.env
+KUE_PORT   = process.env.KUE_PORT
+KUE_HOST   = process.env.KUE_HOST
+PANEL_PORT = process.env.PANEL_PORT
+PANEL_HOST = process.env.PANEL_HOST
+IG_COOKIE  = process.env.IG_COOKIE
 
 # Files - Файлы
 # -- Дирректория для хранения сторонних библиотек для исполнения в браузере -- #
@@ -61,40 +75,51 @@ class Server
   # Поиск строки с помощью регулярного выражения и библиотеки natural
   @tokenizer:new natural.RegexpTokenizer({pattern:/(https?:\/\/[^\s]+)/g})
 
-  @inputMessage:(id, msg, cb) =>
-    cb(msg)
+  @SingUp:(mail, name, pass, cb) => # Регистрация Нового Аккаунта
+    queue.create('email', {
+      title: 'welcome email for tj',
+      to: 'tj@learnboost.com',
+      template: 'welcome-email'}).save()
+    cb("mail: #{mail}, name: #{name}, pass: #{pass}")
 
-  @browserify:(job, done) ->
+  @SingIn:(user, pass, cb) => # Вход в аккаунт (имя/почта:пароль)
+    cb("user: #{user}, pass: #{pass}")
+
+  @inputMessage:(user_id, msg, cb) => # Входящее сообщение
+    cb("#{user_id}, #{msg}")
+
+  @browserify:(job, done) -> # Клиентский код на coffee преабразуется в js
     console.log("PID: #{process.pid}\t@browserify")
-    {browserCoffee, bundleJs} = job.data
-    bundle = browserify({extensions:['.coffee.md']})
+    {browserCoffee, bundleJs} = job.data # Путь к исходнику и путь для экспорта
+    bundle = browserify({extensions:['.coffee']}) # Указываем расширение
     bundle.transform(coffeeify, {
-      bare:false
-      header:false
+      bare:false # Не оборачивать в анаимную функцию
+      header:false # Помещаем скрипт в body
     })
-    bundle.add(browserCoffee)
-    bundle.bundle((error, js) ->
-      throw error if error?
+    bundle.add(browserCoffee) # Добавляем файл в экземпляр
+    bundle.bundle((error, js) -> # Собираем bundle.js
+      throw error if error? # Проверка на ошибку
       writeFileSync(bundleJs, js)
       done()
     )
 
-  @coffeelint:(job, done) ->
+  @coffeelint:(job, done) -> # Проверка кода (статистический анализ)
     console.log("PID: #{process.pid}\t@coffeelint")
-    {files} = job.data
-    command = 'coffeelint ' + "#{files.join(' ')}"
-    exec(command, (err, stdout, stderr) ->
-      console.log(stdout, stderr)
+    {files} = job.data # Список Файлов для Анализа
+    command = 'coffeelint ' + "#{files.join(' ')}" # Формирем команду
+    exec(command, (err, stdout, stderr) -> # Выполняем комманду сркдствами ОС
+      console.log(stdout, stderr) # Выводим результат
       done()
     )
 
-  @pugRender:(job, done) ->
+  @pugRender:(job, done) -> # Рендерим HTML шаблон
     console.log("PID: #{process.pid}\t@pugRender")
-    {templatePug, indexHtml} = job.data
+    {templatePug, indexHtml} = job.data # Путь к исходнику и путь для экспорта
     writeFileSync(indexHtml, pug.renderFile(templatePug, {pretty:true}))
+    # Записываем результат в файл, выбираем читабельный формат
     done()
 
-  @static:(job, done) ->
+  @static:(job, done) -> # Cоздаем файловую структуру
     console.log("PID: #{process.pid}\t@static")
     {htdocsFaviconIco, staticFaviconIco, htdocsImg, staticImg} = job.data
     mkdirsSync(job.data.STATIC_DIR)
@@ -114,6 +139,14 @@ class Server
     stylus.render(content, handler)
     done()
 
+  @email:(job, done ) -> """echo "test" | mail -aFrom:root@#{DOMAIN} #{mail}"""
+    console.log("PID: #{process.pid}\t@email")
+    {files} = job.data # Список Файлов для Анализа
+    command = 'coffeelint ' + "#{files.join(' ')}" # Формирем команду
+    exec(command, (err, stdout, stderr) -> # Выполняем комманду сркдствами ОС
+      console.log(stdout, stderr) # Выводим результат
+      done()
+    )
 
 # Master
 if cluster.isMaster
@@ -141,7 +174,8 @@ if cluster.isMaster
   graph = level(LEVEL_DIR + '/graph', {type:'json'})
   sock = shoe((stream) -> # Define API object providing integration vith dnode
     d = dnode({
-      inputMessage:Server.inputMessage
+      inputMessage:Server.inputMessage,
+      inputMessage:Server.SingUp
     })
     d.pipe(stream).pipe(d)
   )
