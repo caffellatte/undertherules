@@ -139,14 +139,14 @@ class Server
     stylus.render(content, handler)
     done()
 
-  @email:(job, done ) -> """echo "test" | mail -aFrom:root@#{DOMAIN} #{mail}"""
-    console.log("PID: #{process.pid}\t@email")
-    {files} = job.data # Список Файлов для Анализа
-    command = 'coffeelint ' + "#{files.join(' ')}" # Формирем команду
-    exec(command, (err, stdout, stderr) -> # Выполняем комманду сркдствами ОС
-      console.log(stdout, stderr) # Выводим результат
-      done()
-    )
+  # @email:(job, done ) -> "echo 'test' | mail -aFrom:root@#{DOMAIN} #{mail}"
+  #  console.log("PID: #{process.pid}\t@email")
+  #  {files} = job.data # Список Файлов для Анализа
+  #  command = 'coffeelint ' + "#{files.join(' ')}" # Формирем команду
+  #  exec(command, (err, stdout, stderr) -> # Выполняем комманду сркдствами ОС
+  #    console.log(stdout, stderr) # Выводим результат
+  #    done()
+  #  )
 
 # Master
 if cluster.isMaster
